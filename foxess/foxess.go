@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
@@ -30,18 +29,28 @@ func CalculateSignature(path string, apiKey string, timestamp int64) string {
 }
 
 func (g *Foxess) GetHistory(start time.Time, end time.Time) error {
-	const (
-		path = "/op/v0/device/history/query"
-		url  = BaseUrl + path
-	)
+	return g.Request("POST", "/op/v0/device/history/query", &HistoryRequest{SerialNumber: g.Inverter})
+}
+
+func (g *Foxess) GetAvailableVariables() error {
+	return g.Request("GET", "/op/v0/device/variable/get", nil)
+}
+
+func (g *Foxess) Request(operation string, path string, params interface{}) error {
+	url := BaseUrl + path
 	timestamp := time.Now().UnixMilli()
 	signature := CalculateSignature(path, g.ApiKey, timestamp)
-	params := &HistoryRequest{SerialNumber: g.Inverter}
-	body, err := util.ToReader(params)
-	if err != nil {
-		return err
+	var body io.Reader
+	var err error
+
+	if params != nil {
+		body, err = util.ToReader(params)
+		if err != nil {
+			return err
+		}
 	}
-	request, err := http.NewRequest("POST", url, body)
+
+	request, err := http.NewRequest(operation, url, body)
 	if err != nil {
 		return err
 	}
@@ -50,7 +59,6 @@ func (g *Foxess) GetHistory(start time.Time, end time.Time) error {
 	request.Header.Set("timestamp", fmt.Sprint(timestamp))
 	request.Header.Set("lang", "en")
 	request.Header.Set("Content-Type", "application/json")
-	log.Printf("Request: %v\n", request)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return err

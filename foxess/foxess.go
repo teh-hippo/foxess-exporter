@@ -6,32 +6,46 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 	"time"
+
+	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 const (
 	BaseUrl = "https://www.foxesscloud.com"
 )
 
+type Foxess struct {
+	ApiKey   string
+	Inverter string
+}
+
+type HistoryRequest struct {
+	SerialNumber string `json:"sn"`
+}
+
 func CalculateSignature(path string, apiKey string, timestamp int64) string {
 	term := []byte(path + "\\r\\n" + apiKey + "\\r\\n" + fmt.Sprint(timestamp))
 	return fmt.Sprintf("%x", md5.Sum(term))
 }
 
-func GetHistory(apiKey string, inverter string) error {
+func (g *Foxess) GetHistory(start time.Time, end time.Time) error {
 	const (
 		path = "/op/v0/device/history/query"
 		url  = BaseUrl + path
 	)
 	timestamp := time.Now().UnixMilli()
-	signature := CalculateSignature(path, apiKey, timestamp)
-	body := "{\n\"sn\":\"" + inverter + "\"\n}"
-	request, err := http.NewRequest("POST", url, strings.NewReader(body))
+	signature := CalculateSignature(path, g.ApiKey, timestamp)
+	params := &HistoryRequest{SerialNumber: g.Inverter}
+	body, err := util.ToReader(params)
 	if err != nil {
 		return err
 	}
-	request.Header.Set("token", apiKey)
+	request, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return err
+	}
+	request.Header.Set("token", g.ApiKey)
 	request.Header.Set("signature", signature)
 	request.Header.Set("timestamp", fmt.Sprint(timestamp))
 	request.Header.Set("lang", "en")

@@ -2,6 +2,7 @@ package foxess
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,10 +18,24 @@ const (
 type Foxess struct {
 	ApiKey   string
 	Inverter string
+	Debug    bool
 }
 
 type HistoryRequest struct {
 	SerialNumber string `json:"sn"`
+}
+
+type Variable struct {
+	Unit                  string `json:"unit"`
+	GridTiedInverter      bool   `json:"Grid-tied inverter"`
+	EnergyStorageInverter bool   `json:"Energy-storage inverter"`
+}
+
+// Define the structure for the response
+type VariablesResponse struct {
+	Errno  int                   `json:"errno"`
+	Msg    string                `json:"msg"`
+	Result []map[string]Variable `json:"result"`
 }
 
 func CalculateSignature(path string, apiKey string, timestamp int64) string {
@@ -29,14 +44,19 @@ func CalculateSignature(path string, apiKey string, timestamp int64) string {
 }
 
 func (g *Foxess) GetHistory(start time.Time, end time.Time) error {
-	return g.Request("POST", "/op/v0/device/history/query", &HistoryRequest{SerialNumber: g.Inverter})
+	return g.Request("POST", "/op/v0/device/history/query", &HistoryRequest{SerialNumber: g.Inverter}, &HistoryRequest{})
 }
 
-func (g *Foxess) GetAvailableVariables() error {
-	return g.Request("GET", "/op/v0/device/variable/get", nil)
+func (g *Foxess) GetAvailableVariables() (*VariablesResponse, error) {
+	result := &VariablesResponse{}
+	err := g.Request("GET", "/op/v0/device/variable/get", nil, result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-func (g *Foxess) Request(operation string, path string, params interface{}) error {
+func (g *Foxess) Request(operation string, path string, params interface{}, result interface{}) error {
 	url := BaseUrl + path
 	timestamp := time.Now().UnixMilli()
 	signature := CalculateSignature(path, g.ApiKey, timestamp)
@@ -63,10 +83,22 @@ func (g *Foxess) Request(operation string, path string, params interface{}) erro
 	if err != nil {
 		return err
 	}
-	result, err := io.ReadAll(response.Body)
+
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(result))
+
+	if g.Debug {
+		err = util.ToFile(fmt.Sprintf("operation-%s-%d.json", operation, timestamp), data)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = json.Unmarshal(data, result)
+	if err != nil {
+		return err
+	}
 	return nil
 }

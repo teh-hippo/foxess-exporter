@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 func main() {
 	apiKey := flag.String("api-key", "", "FoxESS API Key")
 	inverter := flag.String("inverter", "", "Inverter to target")
+	debug := flag.Bool("debug", false, "Enable debug output")
 	flag.Parse()
 
 	if len(*apiKey) == 0 || len(*inverter) == 0 {
@@ -27,11 +29,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	data := &foxess.Foxess{ApiKey: *apiKey, Inverter: *inverter}
+	data := &foxess.Foxess{ApiKey: *apiKey, Inverter: *inverter, Debug: *debug}
+
 	var err error
 	switch flag.Args()[0] {
 	case "variables":
-		err = data.GetAvailableVariables()
+		err = GetVariables(data)
 	case "history":
 		err = GetHistory(data)
 	}
@@ -46,4 +49,19 @@ func GetHistory(data *foxess.Foxess) error {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	yesterday := today.Add(-24 * time.Hour)
 	return data.GetHistory(yesterday, today)
+}
+
+func GetVariables(data *foxess.Foxess) error {
+	variables, err := data.GetAvailableVariables()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Variable Name\tDescription\tUnit\tGridTiedInverter\tEnergyStorageInverter\n")
+	for _, variable := range variables.Result {
+		for key := range maps.Keys(variable) {
+			item := variable[key]
+			fmt.Printf("%s\t%s\t%s\t%t\t%t\n", key, item.Name["en"], item.Unit, item.GridTiedInverter, item.EnergyStorageInverter)
+		}
+	}
+	return nil
 }

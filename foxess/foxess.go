@@ -15,51 +15,15 @@ const (
 	BaseUrl = "https://www.foxesscloud.com"
 )
 
-type Foxess struct {
-	ApiKey   string
-	Inverter string
-	Debug    bool
-}
-
-type HistoryRequest struct {
-	SerialNumber string `json:"sn"`
-}
-
-type Variable struct {
-	Unit                  string `json:"unit"`
-	GridTiedInverter      bool   `json:"Grid-tied inverter"`
-	EnergyStorageInverter bool   `json:"Energy-storage inverter"`
-}
-
-// Define the structure for the response
-type VariablesResponse struct {
-	Errno  int                   `json:"errno"`
-	Msg    string                `json:"msg"`
-	Result []map[string]Variable `json:"result"`
-}
-
 func CalculateSignature(path string, apiKey string, timestamp int64) string {
 	term := []byte(path + "\\r\\n" + apiKey + "\\r\\n" + fmt.Sprint(timestamp))
 	return fmt.Sprintf("%x", md5.Sum(term))
 }
 
-func (g *Foxess) GetHistory(start time.Time, end time.Time) error {
-	return g.Request("POST", "/op/v0/device/history/query", &HistoryRequest{SerialNumber: g.Inverter}, &HistoryRequest{})
-}
-
-func (g *Foxess) GetAvailableVariables() (*VariablesResponse, error) {
-	result := &VariablesResponse{}
-	err := g.Request("GET", "/op/v0/device/variable/get", nil, result)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (g *Foxess) Request(operation string, path string, params interface{}, result interface{}) error {
+func NewRequest(apiKey string, operation string, path string, params interface{}, result interface{}, debug bool) error {
 	url := BaseUrl + path
 	timestamp := time.Now().UnixMilli()
-	signature := CalculateSignature(path, g.ApiKey, timestamp)
+	signature := CalculateSignature(path, apiKey, timestamp)
 	var body io.Reader
 	var err error
 
@@ -74,7 +38,7 @@ func (g *Foxess) Request(operation string, path string, params interface{}, resu
 	if err != nil {
 		return err
 	}
-	request.Header.Set("token", g.ApiKey)
+	request.Header.Set("token", apiKey)
 	request.Header.Set("signature", signature)
 	request.Header.Set("timestamp", fmt.Sprint(timestamp))
 	request.Header.Set("lang", "en")
@@ -89,7 +53,7 @@ func (g *Foxess) Request(operation string, path string, params interface{}, resu
 		return err
 	}
 
-	if g.Debug {
+	if debug {
 		err = util.ToFile(fmt.Sprintf("operation-%s-%d.json", operation, timestamp), data)
 		if err != nil {
 			return err

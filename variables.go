@@ -15,9 +15,9 @@ type Variable struct {
 
 // Define the structure for the response
 type VariablesResponse struct {
-	Errno  int                   `json:"errno"`
-	Msg    string                `json:"msg"`
-	Result []map[string]Variable `json:"result"`
+	ErrorNumber int                   `json:"errno"`
+	Message     string                `json:"msg"`
+	Result      []map[string]Variable `json:"result"`
 }
 
 type VariablesCommand struct {

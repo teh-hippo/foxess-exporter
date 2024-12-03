@@ -90,10 +90,6 @@ func (x *HistoryCommand) Execute(args []string) error {
 		return err
 	}
 
-	if options.Debug {
-		foxess.WriteDebug(response, fmt.Sprintf("history-%d-%d.json", x.Begin, x.End))
-	}
-
 	for _, inverter := range response.Result {
 		for _, variable := range inverter.Variables {
 

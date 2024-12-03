@@ -41,10 +41,6 @@ func (vc *VariablesCommand) Execute(args []string) error {
 		return err
 	}
 
-	if options.Debug {
-		foxess.WriteDebug(response, "variables.json")
-	}
-
 	tbl := table.New("Variable Name", "Unit", "Grid Tied", "Energy Storage")
 	for _, variable := range response.Result {
 		for key := range maps.Keys(variable) {

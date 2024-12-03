@@ -75,8 +75,5 @@ func (x *RealTimeCommand) Execute(args []string) error {
 		return err
 	}
 
-	if options.Debug {
-		foxess.WriteDebug(response, fmt.Sprintf("realtime-%s.json", x.Inverter))
-	}
 	return nil
 }

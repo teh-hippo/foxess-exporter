@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"slices"
 	"time"
 
 	"github.com/teh-hippo/foxess-exporter/foxess"
-	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type HistoryRequest struct {
@@ -87,8 +85,13 @@ func (x *HistoryCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
-	if response.ErrorNumber != 0 {
-		return fmt.Errorf("error %d: %s", response.ErrorNumber, response.Message)
+
+	if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {
+		return err
+	}
+
+	if options.Debug {
+		foxess.WriteDebug(response, fmt.Sprintf("history-%d-%d.json", x.Begin, x.End))
 	}
 
 	for _, inverter := range response.Result {
@@ -101,16 +104,6 @@ func (x *HistoryCommand) Execute(args []string) error {
 				}
 				return result
 			})
-		}
-	}
-
-	if options.Debug {
-		out, err := json.MarshalIndent(response, "", "  ")
-		if err == nil {
-			err = util.ToFile(fmt.Sprintf("history-%d-%d.json", x.Begin, x.End), out)
-		}
-		if err != nil {
-			return err
 		}
 	}
 	return nil

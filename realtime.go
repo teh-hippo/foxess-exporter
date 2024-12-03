@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/teh-hippo/foxess-exporter/foxess"
-	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type RealTimeRequest struct {
@@ -71,18 +70,13 @@ func (x *RealTimeCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
-	if response.ErrorNumber != 0 {
-		return fmt.Errorf("error %d: %s", response.ErrorNumber, response.Message)
+
+	if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {
+		return err
 	}
 
 	if options.Debug {
-		out, err := json.MarshalIndent(response, "", "  ")
-		if err == nil {
-			err = util.ToFile(fmt.Sprintf("realtime-%s.json", x.Inverter), out)
-		}
-		if err != nil {
-			return err
-		}
+		foxess.WriteDebug(response, fmt.Sprintf("realtime-%s.json", x.Inverter))
 	}
 	return nil
 }

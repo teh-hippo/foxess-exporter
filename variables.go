@@ -31,14 +31,22 @@ func init() {
 }
 
 func (vc *VariablesCommand) Execute(args []string) error {
-	result := &VariablesResponse{}
-	err := foxess.NewRequest(options.ApiKey, "GET", "/op/v0/device/variable/get", nil, result, options.Debug)
+	response := &VariablesResponse{}
+	err := foxess.NewRequest(options.ApiKey, "GET", "/op/v0/device/variable/get", nil, response, options.Debug)
 	if err != nil {
 		return err
 	}
 
+	if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {
+		return err
+	}
+
+	if options.Debug {
+		foxess.WriteDebug(response, "variables.json")
+	}
+
 	tbl := table.New("Variable Name", "Unit", "Grid Tied", "Energy Storage")
-	for _, variable := range result.Result {
+	for _, variable := range response.Result {
 		for key := range maps.Keys(variable) {
 			item := variable[key]
 			if vc.GridOnly && !item.GridTiedInverter {

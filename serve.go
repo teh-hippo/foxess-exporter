@@ -15,7 +15,7 @@ type ServeCommand struct {
 	Port      int      `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
 	Inverters []string `short:"i" long:"inverter" description:"Inverter serial numbers" required:"true" env:"INVERTERS" env-delim:","`
 	Variables []string `short:"v" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
-	Frequency int64    `short:"f" long:"frequency" description:"Frequency of updates (in seconds)." default:"60" required:"true"`
+	Frequency int64    `short:"f" long:"frequency" description:"Frequency of updates (in seconds)." env:"FREQUENCY" default:"60" required:"true"`
 }
 
 var serveCommand ServeCommand

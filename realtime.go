@@ -13,8 +13,8 @@ type RealTimeRequest struct {
 }
 
 type RealTimeCommand struct {
-	Inverter  string   `short:"i" long:"inverter" description:"Inverter serial number" required:"true"`
-	Variables []string `short:"q" long:"variable" description:"Variables to retrieve" required:"false"`
+	Inverters []string `short:"i" long:"inverter" description:"Inverter serial numbers." required:"true"`
+	Variables []string `short:"p" long:"variable" description:"Variables to retrieve" required:"false"`
 }
 
 type NumberAsNil struct {
@@ -59,14 +59,14 @@ func init() {
 }
 
 func (x *RealTimeCommand) Execute(args []string) error {
-	_, err := GetRealTime(x.Inverter, x.Variables)
+	_, err := GetRealTimeData(x.Inverters, x.Variables)
 	return err
 }
 
-func GetRealTime(inverter string, variables []string) (*RealTimeResponse, error) {
+func GetRealTimeData(inverters []string, variables []string) (*RealTimeResponse, error) {
 
 	request := &RealTimeRequest{
-		SerialNumbers: []string{inverter},
+		SerialNumbers: inverters,
 	}
 	if variables != nil {
 		request.Variables = variables

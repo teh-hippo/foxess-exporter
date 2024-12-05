@@ -12,4 +12,4 @@ FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/foxess-exporter /foxess-exporter
 EXPOSE 2112
-CMD ["/foxess-exporter"]
+ENTRYPOINT [ "/foxess-exporter", "serve" ]

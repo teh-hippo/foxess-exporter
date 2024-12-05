@@ -14,7 +14,7 @@ import (
 type ServeCommand struct {
 	Port      int      `short:"p" long:"port" description:"Port to listen on" default:"2112"`
 	Inverter  string   `short:"i" long:"inverter" description:"Inverter serial number" required:"true"`
-	Variables []string `short:"v" long:"variables" description:"Variables to retrieve" required:"true"`
+	Variables []string `short:"q" long:"variable" description:"Variables to retrieve" required:"true"`
 	Frequency int64    `short:"f" long:"frequency" description:"Frequency of updates (in seconds)." default:"60" required:"true"`
 }
 

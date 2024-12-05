@@ -59,21 +59,27 @@ func init() {
 }
 
 func (x *RealTimeCommand) Execute(args []string) error {
+	_, err := GetRealTime(x.Inverter, x.Variables)
+	return err
+}
+
+func GetRealTime(inverter string, variables []string) (*RealTimeResponse, error) {
+
 	request := &RealTimeRequest{
-		SerialNumbers: []string{x.Inverter},
+		SerialNumbers: []string{inverter},
 	}
-	if x.Variables != nil {
-		request.Variables = x.Variables
+	if variables != nil {
+		request.Variables = variables
 	}
 	response := &RealTimeResponse{}
 	err := foxess.NewRequest(options.ApiKey, "POST", "/op/v1/device/real/query", request, response, options.Debug)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return response, nil
 }

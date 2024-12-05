@@ -15,7 +15,7 @@ type ServeCommand struct {
 	Port      int      `short:"p" long:"port" description:"Port to listen on" default:"2112"`
 	Inverter  string   `short:"i" long:"inverter" description:"Inverter serial number" required:"true"`
 	Variables []string `short:"q" long:"variable" description:"Variables to retrieve" required:"true"`
-	Frequency int64    `short:"f" long:"frequency" description:"Frequency of updates (in seconds)." default:"60" required:"true"`
+	Frequency int64    `short:"t" long:"frequency" description:"Frequency of updates (in seconds)." default:"60" required:"true"`
 }
 
 var serveCommand ServeCommand
@@ -55,17 +55,19 @@ func (x *ServeCommand) Execute(args []string) error {
 
 func (x *ServeCommand) realtime() {
 	go func() {
-		log.Printf("Retrieving %d current real-time value(s)", len(x.Variables))
-		response, err := GetRealTime(serveCommand.Inverter, serveCommand.Variables)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			for _, variable := range response.Result[0].Variables {
-				log.Println("Setting gauge for", variable.Variable, "to", variable.Value.Number)
-				gauge := gauges[variable.Variable]
-				gauge.Set(variable.Value.Number)
+		for {
+			log.Printf("Retrieving %d current real-time value(s)", len(x.Variables))
+			response, err := GetRealTime(serveCommand.Inverter, serveCommand.Variables)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				for _, variable := range response.Result[0].Variables {
+					log.Println("Setting gauge for", variable.Variable, "to", variable.Value.Number)
+					gauge := gauges[variable.Variable]
+					gauge.Set(variable.Value.Number)
+				}
 			}
+			time.Sleep(time.Duration(x.Frequency) * time.Second)
 		}
-		time.Sleep(time.Duration(x.Frequency) * time.Second)
 	}()
 }

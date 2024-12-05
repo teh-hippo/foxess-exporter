@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"time"
@@ -54,11 +55,13 @@ func (x *ServeCommand) Execute(args []string) error {
 
 func (x *ServeCommand) realtime() {
 	go func() {
+		log.Printf("Retrieving %d current real-time value(s)", len(x.Variables))
 		response, err := GetRealTime(serveCommand.Inverter, serveCommand.Variables)
 		if err != nil {
 			fmt.Println(err)
 		} else {
 			for _, variable := range response.Result[0].Variables {
+				log.Println("Setting gauge for", variable.Variable, "to", variable.Value.Number)
 				gauge := gauges[variable.Variable]
 				gauge.Set(variable.Value.Number)
 			}

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/teh-hippo/foxess-exporter/util"
@@ -25,6 +27,8 @@ func NewRequest(apiKey string, operation string, path string, params interface{}
 	url := BaseUrl + path
 	timestamp := time.Now().UnixMilli()
 	signature := CalculateSignature(path, apiKey, timestamp)
+	operationParts := strings.Split(operation, "/")
+	operationName := operationParts[int(math.Max(0, float64(len(operationParts)-1)))]
 	var body io.Reader
 	var err error
 
@@ -55,7 +59,7 @@ func NewRequest(apiKey string, operation string, path string, params interface{}
 	}
 
 	if debug {
-		err = util.ToFile(fmt.Sprintf("operation-%s-%d.json", operation, timestamp), data)
+		err = util.ToFile(fmt.Sprintf("debug-%s-%d.json", operationName, timestamp), data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
 		}
@@ -67,7 +71,7 @@ func NewRequest(apiKey string, operation string, path string, params interface{}
 	}
 
 	if debug {
-		err = util.ToFile(fmt.Sprintf("operation-marshalled-%s-%d.json", operation, timestamp), data)
+		err = util.ToFile(fmt.Sprintf("debug-%s-%d-marshalled.json", operationName, timestamp), data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
 		}

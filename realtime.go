@@ -14,7 +14,7 @@ type RealTimeRequest struct {
 
 type RealTimeCommand struct {
 	Inverter  string   `short:"i" long:"inverter" description:"Inverter serial number" required:"true"`
-	Variables []string `short:"v" long:"variables" description:"Variables to retrieve" required:"false"`
+	Variables []string `short:"q" long:"variable" description:"Variables to retrieve" required:"false"`
 }
 
 type NumberAsNil struct {

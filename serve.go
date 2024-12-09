@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -153,7 +154,7 @@ func (x *ServeCommand) updatediscovery() {
 		for {
 			log.Print("Updating discovery data")
 			if devices, err := GetDeviceList(); err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(os.Stderr, err)
 			} else {
 				deviceSerialNumbers := make([]string, len(devices))
 				for i, device := range devices {

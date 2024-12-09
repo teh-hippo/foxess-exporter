@@ -65,14 +65,12 @@ func NewRequest(apiKey string, operation string, path string, params interface{}
 		}
 	}
 
-	err = json.Unmarshal(data, result)
-	if err != nil {
+	if err = json.Unmarshal(data, result); err != nil {
 		return err
 	}
 
 	if debug {
-		err = util.ToFile(fmt.Sprintf("debug-%s-%d-marshalled.json", operationName, timestamp), data)
-		if err != nil {
+		if err = util.ToFile(fmt.Sprintf("debug-%s-%d-marshalled.json", operationName, timestamp), data); err != nil {
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
 		}
 	}

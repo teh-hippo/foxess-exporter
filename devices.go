@@ -1,11 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/rodaine/table"
 	"github.com/teh-hippo/foxess-exporter/foxess"
+	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type DevicesCommand struct {
@@ -59,18 +59,19 @@ func (x *DevicesCommand) Execute(args []string) error {
 		return fmt.Errorf("full output is not supported for JSON format")
 	}
 
-	devices, err := GetDeviceList()
-	if err != nil {
+	if devices, err := GetDeviceList(); err != nil {
 		return err
+	} else {
+		switch x.Format {
+		case "table":
+			x.OutputAsTable(devices)
+			return nil
+		case "json":
+			return util.JsonToStdOut(devices)
+		default:
+			return fmt.Errorf("unsupported output format: %s", x.Format)
+		}
 	}
-
-	switch x.Format {
-	case "table":
-		x.OutputAsTable(devices)
-	case "json":
-		return x.OutputAsJSON(devices)
-	}
-	return nil
 }
 
 func (x *DevicesCommand) OutputAsTable(devices []Device) {
@@ -87,17 +88,6 @@ func (x *DevicesCommand) OutputAsTable(devices []Device) {
 		}
 	}
 	tbl.Print()
-}
-
-func (x *DevicesCommand) OutputAsJSON(devices []Device) error {
-	for _, device := range devices {
-		result, err := json.Marshal(device)
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(result))
-	}
-	return nil
 }
 
 func IsOnline(status int) string {
@@ -123,13 +113,9 @@ func GetDeviceList() ([]Device, error) {
 			PageSize:    PageSize,
 		}
 		response := &DeviceListResponse{}
-		err := foxess.NewRequest(options.ApiKey, "POST", "/op/v0/device/list", request, response, options.Debug)
-
-		if err != nil {
+		if err := foxess.NewRequest(options.ApiKey, "POST", "/op/v0/device/list", request, response, options.Debug); err != nil {
 			return nil, err
-		}
-
-		if err = foxess.IsError(response.ErrorNumber, ""); err != nil {
+		} else if err = foxess.IsError(response.ErrorNumber, ""); err != nil {
 			return nil, err
 		}
 

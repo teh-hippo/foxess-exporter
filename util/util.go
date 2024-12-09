@@ -35,6 +35,12 @@ func FromFile(fileName string) ([]byte, error) {
 	return contents, nil
 }
 
+func JsonToStdOut(v any) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
+
 func ToFile(fileName string, contents []byte) error {
 	// Create or open the file
 	file, err := os.Create(fileName)

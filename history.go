@@ -1,11 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"slices"
+	"errors"
 	"time"
 
+	"github.com/rodaine/table"
 	"github.com/teh-hippo/foxess-exporter/foxess"
+	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type HistoryRequest struct {
@@ -20,6 +21,7 @@ type HistoryCommand struct {
 	Begin     int64    `short:"b" long:"begin" description:"Begin time for request in milliseconds"`
 	End       int64    `short:"e" long:"end" description:"End time for request in milliseconds"`
 	Variables []string `short:"v" long:"variable" description:"Variables to retrieve" required:"true"`
+	Format    string   `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
 type DataPoint struct {
@@ -43,14 +45,16 @@ type HistoryResponse struct {
 	ErrorNumber int    `json:"errno"`
 	Message     string `json:"msg"`
 	Result      []struct {
-		Variables []struct {
-			Unit       string      `json:"unit"`
-			DataPoints []DataPoint `json:"data"`
-			Name       string      `json:"name"`
-			Variable   string      `json:"variable"`
-		} `json:"datas"`
-		DeviceSN string `json:"deviceSN"`
+		Variables []VariableHistory `json:"datas"`
+		DeviceSN  string            `json:"deviceSN"`
 	} `json:"result"`
+}
+
+type VariableHistory struct {
+	Unit       string      `json:"unit"`
+	DataPoints []DataPoint `json:"data"`
+	Name       string      `json:"name"`
+	Variable   string      `json:"variable"`
 }
 
 var historyCommand HistoryCommand
@@ -62,7 +66,7 @@ func init() {
 func (x *HistoryCommand) Execute(args []string) error {
 	if x.Begin == 0 || x.End == 0 {
 		if x.Begin != x.End {
-			return fmt.Errorf("when using begin/end, must provided both values")
+			return errors.New("when using begin/end, must provided both values")
 		}
 
 		now := time.Now()
@@ -72,35 +76,52 @@ func (x *HistoryCommand) Execute(args []string) error {
 		x.End = startOfDay.UnixMilli()
 	}
 
-	request := &HistoryRequest{
-		Begin:        x.Begin,
-		End:          x.End,
-		SerialNumber: x.Inverter,
+	if response, err := GetVariableHistory(x.Inverter, x.Begin, x.End, x.Variables); err != nil {
+		return err
+	} else if err = x.outputResult(response); err != nil {
+		return err
+	} else {
+		return nil
 	}
-	if x.Variables != nil {
-		request.Variables = x.Variables
+}
+
+func GetVariableHistory(inverter string, begin, end int64, variables []string) ([]VariableHistory, error) {
+	request := &HistoryRequest{
+		Begin:        begin,
+		End:          end,
+		SerialNumber: inverter,
+	}
+
+	if variables != nil {
+		request.Variables = variables
 	}
 	response := &HistoryResponse{}
 	err := foxess.NewRequest(options.ApiKey, "POST", "/op/v0/device/history/query", request, response, options.Debug)
 	if err != nil {
-		return err
+		return nil, err
+	} else if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {
+		return nil, err
 	}
 
-	if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {
-		return err
+	result := make([]VariableHistory, len(response.Result))
+	for i, r := range response.Result {
+		result[i] = r.Variables[i]
 	}
+	return result, nil
+}
 
-	for _, inverter := range response.Result {
-		for _, variable := range inverter.Variables {
-
-			slices.SortFunc(variable.DataPoints, func(i, j DataPoint) int {
-				result := i.Time.Time.Compare(j.Time.Time)
-				if result != 1 {
-					return result
-				}
-				return result
-			})
+func (x *HistoryCommand) outputResult(history []VariableHistory) error {
+	switch x.Format {
+	case "table":
+		tbl := table.New("Variable", "Name", "Unit", "Time", "Value")
+		for _, variable := range history {
+			for _, point := range variable.DataPoints {
+				tbl.AddRow(variable.Variable, variable.Name, variable.Unit, point.Time, point.Value)
+			}
+			tbl.Print()
 		}
+	case "json":
+		return util.JsonToStdOut(history)
 	}
 	return nil
 }

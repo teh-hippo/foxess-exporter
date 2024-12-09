@@ -128,18 +128,18 @@ func (x *ServeCommand) realtime() {
 			apiUsage := <-apiUsageChan
 			if apiUsage.PercentageUsed >= x.ApiUsageBlock {
 				log.Printf("Usage is over the limit.")
-			} else if response, err := GetRealTimeData(*GetInverters(), serveCommand.Variables); err != nil {
+			} else if data, err := GetRealTimeData(*GetInverters(), serveCommand.Variables); err != nil {
 				fmt.Println(err)
 			} else {
-				x.processResponse(response)
+				x.processResponse(data)
 			}
 			time.Sleep(time.Duration(x.Frequency) * time.Second)
 		}
 	}()
 }
 
-func (x *ServeCommand) processResponse(response *RealTimeResponse) {
-	for _, result := range response.Result {
+func (x *ServeCommand) processResponse(data []RealTimeData) {
+	for _, result := range data {
 		for _, variable := range result.Variables {
 			gauge := gauges[variable.Variable]
 			if gauge == nil {

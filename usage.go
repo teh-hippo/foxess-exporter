@@ -6,9 +6,11 @@ import (
 
 	"github.com/rodaine/table"
 	"github.com/teh-hippo/foxess-exporter/foxess"
+	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type ApiUsageCommand struct {
+	Format string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
 type AccessCountResponse struct {
@@ -32,16 +34,18 @@ func init() {
 }
 
 func (x *ApiUsageCommand) Execute(args []string) error {
-	apiUsage, err := GetApiUsage()
-	if err != nil {
+	if apiUsage, err := GetApiUsage(); err != nil {
 		return err
+	} else if x.Format == "table" {
+		tbl := table.New("Total", "Remaining", "Used")
+		tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", apiUsage.PercentageUsed))
+		tbl.Print()
+		return nil
+	} else if x.Format == "json" {
+		return util.JsonToStdOut(apiUsage)
+	} else {
+		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}
-
-	tbl := table.New("Total", "Remaining", "Used")
-	tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", apiUsage.PercentageUsed))
-	tbl.Print()
-
-	return nil
 }
 
 func GetApiUsage() (*ApiUsage, error) {
@@ -58,8 +62,7 @@ func GetApiUsage() (*ApiUsage, error) {
 	var total, remaining float64
 	if total, err = response.Result.Total.Float64(); err != nil {
 		return nil, err
-	}
-	if remaining, err = response.Result.Remaining.Float64(); err != nil {
+	} else if remaining, err = response.Result.Remaining.Float64(); err != nil {
 		return nil, err
 	}
 

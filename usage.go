@@ -21,6 +21,12 @@ type ApiUsage struct {
 	Remaining json.Number `json:"remaining"`
 }
 
+type CurrentUsage struct {
+	Total      float64
+	Remaining  float64
+	Percentage float64
+}
+
 var apiUsageCommand ApiUsageCommand
 
 func init() {
@@ -34,21 +40,13 @@ func (x *ApiUsageCommand) Execute(args []string) error {
 	}
 
 	tbl := table.New("Total", "Remaining", "Used")
-	var total, remaining float64
-	if total, err = apiUsage.Total.Float64(); err != nil {
-		return err
-	}
-	if remaining, err = apiUsage.Remaining.Float64(); err != nil {
-		return err
-	}
-	percentage := (total - remaining) / total * 100
-	tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", percentage))
+	tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", apiUsage.Percentage))
 	tbl.Print()
 
 	return nil
 }
 
-func GetApiUsage() (*ApiUsage, error) {
+func GetApiUsage() (*CurrentUsage, error) {
 	response := &AccessCountResponse{}
 	err := foxess.NewRequest(options.ApiKey, "GET", "/op/v0/user/getAccessCount", nil, response, options.Debug)
 	if err != nil {
@@ -59,5 +57,18 @@ func GetApiUsage() (*ApiUsage, error) {
 		return nil, err
 	}
 
-	return &response.Result, nil
+	var total, remaining float64
+	if total, err = response.Result.Total.Float64(); err != nil {
+		return nil, err
+	}
+	if remaining, err = response.Result.Remaining.Float64(); err != nil {
+		return nil, err
+	}
+
+	percentage := (total - remaining) / total * 100
+	return &CurrentUsage{
+		Total:      total,
+		Remaining:  remaining,
+		Percentage: percentage,
+	}, nil
 }

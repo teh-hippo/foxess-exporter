@@ -73,14 +73,11 @@ func Discovery(w http.ResponseWriter, r *http.Request) {
 				Labels:  []Device{device}})
 	}
 
-	h, err := json.MarshalIndent(response, "", "  ")
-	if err != nil {
-		fmt.Fprintf(w, "Error: %v", err)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	} else {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(h)
 	}
 }
 

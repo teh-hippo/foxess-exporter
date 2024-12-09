@@ -18,7 +18,6 @@ func ToReader(v interface{}) (io.Reader, error) {
 }
 
 func FromFile(fileName string) ([]byte, error) {
-	// Open the file
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file '%s': %w", fileName, err)

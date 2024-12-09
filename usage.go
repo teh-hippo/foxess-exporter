@@ -20,9 +20,9 @@ type AccessCountResponse struct {
 }
 
 type ApiUsage struct {
-	Total      float64
-	Remaining  float64
-	Percentage float64
+	Total          float64
+	Remaining      float64
+	PercentageUsed float64
 }
 
 var apiUsageCommand ApiUsageCommand
@@ -38,7 +38,7 @@ func (x *ApiUsageCommand) Execute(args []string) error {
 	}
 
 	tbl := table.New("Total", "Remaining", "Used")
-	tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", apiUsage.Percentage))
+	tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", apiUsage.PercentageUsed))
 	tbl.Print()
 
 	return nil
@@ -65,8 +65,8 @@ func GetApiUsage() (*ApiUsage, error) {
 
 	percentage := (total - remaining) / total * 100
 	return &ApiUsage{
-		Total:      total,
-		Remaining:  remaining,
-		Percentage: percentage,
+		Total:          total,
+		Remaining:      remaining,
+		PercentageUsed: percentage,
 	}, nil
 }

@@ -12,16 +12,14 @@ type ApiUsageCommand struct {
 }
 
 type AccessCountResponse struct {
-	ErrorNumber int      `json:"errno"`
-	Result      ApiUsage `json:"result"`
+	ErrorNumber int `json:"errno"`
+	Result      struct {
+		Total     json.Number `json:"total"`
+		Remaining json.Number `json:"remaining"`
+	} `json:"result"`
 }
 
 type ApiUsage struct {
-	Total     json.Number `json:"total"`
-	Remaining json.Number `json:"remaining"`
-}
-
-type CurrentUsage struct {
 	Total      float64
 	Remaining  float64
 	Percentage float64
@@ -46,7 +44,7 @@ func (x *ApiUsageCommand) Execute(args []string) error {
 	return nil
 }
 
-func GetApiUsage() (*CurrentUsage, error) {
+func GetApiUsage() (*ApiUsage, error) {
 	response := &AccessCountResponse{}
 	err := foxess.NewRequest(options.ApiKey, "GET", "/op/v0/user/getAccessCount", nil, response, options.Debug)
 	if err != nil {
@@ -66,7 +64,7 @@ func GetApiUsage() (*CurrentUsage, error) {
 	}
 
 	percentage := (total - remaining) / total * 100
-	return &CurrentUsage{
+	return &ApiUsage{
 		Total:      total,
 		Remaining:  remaining,
 		Percentage: percentage,

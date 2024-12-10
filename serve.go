@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"sync"
@@ -25,13 +25,13 @@ type DiscoveryResponse struct {
 }
 
 type ServeCommand struct {
-	Port          int      `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
-	Inverters     []string `short:"i" long:"inverter" description:"Inverter serial numbers" required:"true" env:"INVERTERS" env-delim:","`
-	Variables     []string `short:"V" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
-	Frequency     int64    `short:"f" long:"frequency" description:"Frequency of updates (in seconds)." env:"FREQUENCY" default:"60" required:"true"`
-	Discovery     string   `short:"d" long:"discovery" description:"Configure discovery behaviour." required:"false" choices:"off,on,only" default:"off"`
-	ApiUsageBlock float64  `short:"l" long:"limit" description:"Block further API calls being made once usage crosses the provided percentage." required:"false" default:"90" env:"USAGE_LIMIT"`
-	Verbose       bool     `short:"v" long:"verbose" description:"Enable verbose logging." required:"false"`
+	Port                int      `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
+	Inverters           []string `short:"i" long:"inverter" description:"Inverter serial numbers" required:"true" env:"INVERTERS" env-delim:","`
+	Variables           []string `short:"V" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
+	RealTimeIntervalSec int64    `short:"fI" long:"realtime-interval" description:"Frequency of updating real-time data (in seconds)." env:"REAL_TIME_INTERVAL" default:"120" required:"true"`
+	StatusIntervalSec   int64    `short:"fS" long:"status-interval" description:"Frequency of updating the status of devices (in seconds)." env:"STATUS_INTERVAL" default:"900" required:"true"`
+	Discovery           string   `short:"d" long:"discovery" description:"Configure discovery behaviour." required:"false" choices:"off,on,only" default:"off"`
+	Verbose             bool     `short:"v" long:"verbose" description:"Enable verbose logging." required:"false"`
 }
 
 var serveCommand ServeCommand
@@ -40,7 +40,6 @@ var metrics = make(map[string]prometheus.Gauge)
 var last_reported_time = make(map[string]time.Time)
 var devicesChan = make(chan *[]Device, 1)
 var deviceSerialNumbersChan = make(chan *[]string, 1)
-var hasReportedExcessUsage bool
 var apiQuota = &ApiQuota{
 	cond: sync.NewCond(&sync.Mutex{}),
 }
@@ -49,29 +48,74 @@ func init() {
 	parser.AddCommand("serve", "Start the exporter", "Start the exporter", &serveCommand)
 }
 
+func (x *ServeCommand) validateIntervals() error {
+	// Check the intervals are not too low.
+	x.RealTimeIntervalSec = util.Clamp(x.RealTimeIntervalSec, 60)
+	x.StatusIntervalSec = util.Clamp(x.StatusIntervalSec, 60)
+
+	const dayInSeconds float64 = 24 * 60 * 60
+	available := float64(1440)
+	available -= dayInSeconds / float64(x.RealTimeIntervalSec)
+	available -= dayInSeconds / float64(x.StatusIntervalSec)
+	if available < 0 {
+		return errors.New("current intervals would result in API usage exceeding the maximum daily allowance")
+	}
+	return nil
+}
+
+func (x *ServeCommand) startDeviceStatusMetric() {
+	go func() {
+		for {
+			if x.isApiQuotaAvailable() {
+				x.verbose("Retrieving device status")
+				if devices, err := GetDeviceList(); err != nil {
+					fmt.Println(err)
+				} else {
+					for _, device := range devices {
+						log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
+						x.statusMetric(device.DeviceSerialNumber).Set(float64(device.Status))
+					}
+				}
+			}
+			time.Sleep(time.Duration(x.StatusIntervalSec) * time.Second)
+		}
+	}()
+}
+
+func (x *ServeCommand) startRealTimeMetrics() {
+	go func() {
+		for {
+			if x.isApiQuotaAvailable() {
+				x.verbose("Retrieving device real-time data")
+				if data, err := GetRealTimeData(*inverters(), serveCommand.Variables); err != nil {
+					fmt.Println(err)
+				} else {
+
+					x.handleRealTimeData(data)
+				}
+			}
+			time.Sleep(time.Duration(x.RealTimeIntervalSec) * time.Second)
+		}
+	}()
+}
+
 func (x *ServeCommand) Execute(args []string) error {
-	// Ensure the frequency is at least 60 seconds.
-	x.Frequency = int64(math.Max(float64(60), float64(x.Frequency)))
+	x.startApiQuotaManagement()
 
-	// Regular API usage.
-	x.reportusage()
-
-	// Server metrics on the standard endpoint.
 	if x.Discovery != "only" {
 		http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-		// Start polling FoxESS.
-		x.realtime()
-		x.device_status()
+		x.startRealTimeMetrics()
+		x.startDeviceStatusMetric()
 	}
 	if x.Discovery != "off" {
-		x.updatediscovery()
-		http.Handle("/discovery", http.HandlerFunc(Discovery))
+		x.startDiscovery()
+		http.Handle("/discovery", http.HandlerFunc(discovery))
 	}
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
 	return http.ListenAndServe(":"+fmt.Sprint(x.Port), nil)
 }
 
-func Discovery(w http.ResponseWriter, r *http.Request) {
+func discovery(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Discovery request received.")
 	devices := <-devicesChan
 	response := &DiscoveryResponse{}
@@ -90,7 +134,52 @@ func Discovery(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (x *ServeCommand) getRealTimeMetric(variable string, inverter string) prometheus.Gauge {
+func (x *ServeCommand) startApiQuotaManagement() {
+	go func() {
+		for {
+			if err := apiQuota.update(); err != nil {
+				fmt.Println(err)
+			} else {
+				apiUsage := apiQuota.current()
+				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
+			}
+			time.Sleep(10 * time.Minute)
+		}
+	}()
+}
+
+func (x *ServeCommand) startDiscovery() {
+	go func() {
+		for {
+			log.Print("Updating discovery data")
+			if devices, err := GetDeviceList(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			} else {
+				deviceSerialNumbers := make([]string, len(devices))
+				for i, device := range devices {
+					deviceSerialNumbers[i] = device.DeviceSerialNumber
+				}
+				devicesChan <- &devices
+				deviceSerialNumbersChan <- &deviceSerialNumbers
+			}
+			time.Sleep(24 * time.Hour)
+		}
+	}()
+}
+
+func inverters() *[]string {
+	if len(serveCommand.Inverters) == 0 {
+		return <-deviceSerialNumbersChan
+	} else {
+		return &serveCommand.Inverters
+	}
+}
+
+func (x *ServeCommand) isApiQuotaAvailable() bool {
+	return apiQuota.current().Remaining > 0
+}
+
+func (x *ServeCommand) realTimeMetric(variable string, inverter string) prometheus.Gauge {
 	metric := metrics[variable]
 	if metric != nil {
 		return metric
@@ -109,7 +198,7 @@ func (x *ServeCommand) getRealTimeMetric(variable string, inverter string) prome
 	return metric
 }
 
-func (x *ServeCommand) getStatusMetric(inverter string) prometheus.Gauge {
+func (x *ServeCommand) statusMetric(inverter string) prometheus.Gauge {
 	metric := metrics[inverter]
 	if metric != nil {
 		return metric
@@ -128,84 +217,7 @@ func (x *ServeCommand) getStatusMetric(inverter string) prometheus.Gauge {
 	return metric
 }
 
-func (x *ServeCommand) reportusage() {
-	go func() {
-		for {
-			if err := apiQuota.update(); err != nil {
-				fmt.Println(err)
-			} else {
-				apiUsage := apiQuota.current()
-				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
-			}
-			time.Sleep(10 * time.Minute)
-		}
-	}()
-}
-
-func GetInverters() *[]string {
-	if len(serveCommand.Inverters) == 0 {
-		return <-deviceSerialNumbersChan
-	} else {
-		return &serveCommand.Inverters
-	}
-}
-
-func (x *ServeCommand) shouldUpdate() bool {
-	apiUsage := apiQuota.current()
-	if apiUsage.PercentageUsed >= x.ApiUsageBlock {
-		if x.Verbose || !hasReportedExcessUsage {
-			log.Printf("Usage is over the limit.")
-		}
-		hasReportedExcessUsage = true
-		return false
-	} else {
-		hasReportedExcessUsage = false
-		return true
-	}
-}
-
-func (x *ServeCommand) realtime() {
-	go func() {
-		for {
-			if x.shouldUpdate() {
-				log.Printf("Retrieving device real-time data")
-				if data, err := GetRealTimeData(*GetInverters(), serveCommand.Variables); err != nil {
-					fmt.Println(err)
-				} else {
-					x.processResponse(data)
-				}
-			}
-			time.Sleep(time.Duration(x.Frequency) * time.Second)
-		}
-	}()
-}
-
-func (x *ServeCommand) verbose(format string, v ...any) {
-	if x.Verbose {
-		log.Printf(format, v...)
-	}
-}
-
-func (x *ServeCommand) device_status() {
-	go func() {
-		for {
-			if x.shouldUpdate() {
-				x.verbose("Retrieving device status")
-				if devices, err := GetDeviceList(); err != nil {
-					fmt.Println(err)
-				} else {
-					for _, device := range devices {
-						log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
-						x.getStatusMetric(device.DeviceSerialNumber).Set(float64(device.Status))
-					}
-				}
-			}
-			time.Sleep(time.Duration(x.Frequency) * time.Second)
-		}
-	}()
-}
-
-func (x *ServeCommand) processResponse(data []RealTimeData) {
+func (x *ServeCommand) handleRealTimeData(data []RealTimeData) {
 	for _, result := range data {
 		if last_reported_time[result.DeviceSN].Equal(result.Time.Time) {
 			x.verbose("No update for %s.", result.DeviceSN)
@@ -215,26 +227,13 @@ func (x *ServeCommand) processResponse(data []RealTimeData) {
 		last_reported_time[result.DeviceSN] = result.Time.Time
 		for _, variable := range result.Variables {
 			x.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
-			x.getRealTimeMetric(variable.Variable, result.DeviceSN).Set(variable.Value.Number)
+			x.realTimeMetric(variable.Variable, result.DeviceSN).Set(variable.Value.Number)
 		}
 	}
 }
 
-func (x *ServeCommand) updatediscovery() {
-	go func() {
-		for {
-			log.Print("Updating discovery data")
-			if devices, err := GetDeviceList(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-			} else {
-				deviceSerialNumbers := make([]string, len(devices))
-				for i, device := range devices {
-					deviceSerialNumbers[i] = device.DeviceSerialNumber
-				}
-				devicesChan <- &devices
-				deviceSerialNumbersChan <- &deviceSerialNumbers
-			}
-			time.Sleep(24 * time.Hour)
-		}
-	}()
+func (x *ServeCommand) verbose(format string, v ...any) {
+	if x.Verbose {
+		log.Printf(format, v...)
+	}
 }

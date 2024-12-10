@@ -79,19 +79,19 @@ func (x *DevicesCommand) OutputAsTable(devices []Device) {
 	if x.FullOutput {
 		tbl = table.New("Device Serial Number", "Module Serial Number", "Station ID", "Station Name", "Status", "Has PV", "Has Battery", "Device Type", "Product Type")
 		for _, device := range devices {
-			tbl.AddRow(device.DeviceSerialNumber, device.ModuleSerialNumber, device.StationId, device.StationName, IsOnline(device.Status), device.HasPV, device.HasBattery, device.DeviceType, device.ProductType)
+			tbl.AddRow(device.DeviceSerialNumber, device.ModuleSerialNumber, device.StationId, device.StationName, device.status(), device.HasPV, device.HasBattery, device.DeviceType, device.ProductType)
 		}
 	} else {
 		tbl = table.New("Device Serial Number", "Station Name", "Status", "Has PV", "Has Battery")
 		for _, device := range devices {
-			tbl.AddRow(device.DeviceSerialNumber, device.StationName, IsOnline(device.Status), device.HasPV, device.HasBattery)
+			tbl.AddRow(device.DeviceSerialNumber, device.StationName, device.status(), device.HasPV, device.HasBattery)
 		}
 	}
 	tbl.Print()
 }
 
-func IsOnline(status int) string {
-	switch status {
+func (d *Device) status() string {
+	switch d.Status {
 	case DEVICES_STATUS_ONLINE:
 		return "Online"
 	case DEVICES_STATUS_FAULT:
@@ -99,7 +99,7 @@ func IsOnline(status int) string {
 	case DEVICES_STATUS_OFFLINE:
 		return "Offline"
 	default:
-		return fmt.Sprint("Unknown:", status)
+		return fmt.Sprint("Unknown:", d.Status)
 	}
 }
 

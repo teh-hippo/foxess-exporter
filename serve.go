@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -39,7 +40,10 @@ var metrics = make(map[string]prometheus.Gauge)
 var last_reported_time = make(map[string]time.Time)
 var devicesChan = make(chan *[]Device, 1)
 var deviceSerialNumbersChan = make(chan *[]string, 1)
-var apiUsageChan = make(chan *ApiUsage, 1)
+var hasReportedExcessUsage bool
+var apiQuota = &ApiQuota{
+	cond: sync.NewCond(&sync.Mutex{}),
+}
 
 func init() {
 	parser.AddCommand("serve", "Start the exporter", "Start the exporter", &serveCommand)
@@ -57,6 +61,7 @@ func (x *ServeCommand) Execute(args []string) error {
 		http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 		// Start polling FoxESS.
 		x.realtime()
+		x.device_status()
 	}
 	if x.Discovery != "off" {
 		x.updatediscovery()
@@ -85,11 +90,13 @@ func Discovery(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (x *ServeCommand) setupGauge(variable string, inverter string) prometheus.Gauge {
-	if x.Verbose {
-		log.Printf("Creating '%s' gauge for '%s'.\n", variable, inverter)
+func (x *ServeCommand) getRealTimeMetric(variable string, inverter string) prometheus.Gauge {
+	metric := metrics[variable]
+	if metric != nil {
+		return metric
 	}
-	metric := prometheus.NewGauge(prometheus.GaugeOpts{
+	x.verbose("Creating '%s' gauge for '%s'.\n", variable, inverter)
+	metric = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "foxess_realtime_data",
 		Help: "Data from the FoxESS platform.",
 		ConstLabels: prometheus.Labels{
@@ -102,14 +109,33 @@ func (x *ServeCommand) setupGauge(variable string, inverter string) prometheus.G
 	return metric
 }
 
+func (x *ServeCommand) getStatusMetric(inverter string) prometheus.Gauge {
+	metric := metrics[inverter]
+	if metric != nil {
+		return metric
+	}
+
+	x.verbose("Creating 'status' gauge for '%s'.\n", inverter)
+	metric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "foxess_device_status",
+		Help: "Status of the inverter.",
+		ConstLabels: prometheus.Labels{
+			"inverter": inverter,
+		},
+	})
+	metrics[inverter] = metric
+	reg.MustRegister(metric)
+	return metric
+}
+
 func (x *ServeCommand) reportusage() {
 	go func() {
 		for {
-			if apiUsage, err := GetApiUsage(); err != nil {
+			if err := apiQuota.update(); err != nil {
 				fmt.Println(err)
 			} else {
+				apiUsage := apiQuota.current()
 				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
-				apiUsageChan <- apiUsage
 			}
 			time.Sleep(10 * time.Minute)
 		}
@@ -124,17 +150,55 @@ func GetInverters() *[]string {
 	}
 }
 
+func (x *ServeCommand) shouldUpdate() bool {
+	apiUsage := apiQuota.current()
+	if apiUsage.PercentageUsed >= x.ApiUsageBlock {
+		if x.Verbose || !hasReportedExcessUsage {
+			log.Printf("Usage is over the limit.")
+		}
+		hasReportedExcessUsage = true
+		return false
+	} else {
+		hasReportedExcessUsage = false
+		return true
+	}
+}
+
 func (x *ServeCommand) realtime() {
 	go func() {
 		for {
-			log.Printf("Retrieving device real-time data")
-			apiUsage := <-apiUsageChan
-			if apiUsage.PercentageUsed >= x.ApiUsageBlock {
-				log.Printf("Usage is over the limit.")
-			} else if data, err := GetRealTimeData(*GetInverters(), serveCommand.Variables); err != nil {
-				fmt.Println(err)
-			} else {
-				x.processResponse(data)
+			if x.shouldUpdate() {
+				log.Printf("Retrieving device real-time data")
+				if data, err := GetRealTimeData(*GetInverters(), serveCommand.Variables); err != nil {
+					fmt.Println(err)
+				} else {
+					x.processResponse(data)
+				}
+			}
+			time.Sleep(time.Duration(x.Frequency) * time.Second)
+		}
+	}()
+}
+
+func (x *ServeCommand) verbose(format string, v ...any) {
+	if x.Verbose {
+		log.Printf(format, v...)
+	}
+}
+
+func (x *ServeCommand) device_status() {
+	go func() {
+		for {
+			if x.shouldUpdate() {
+				x.verbose("Retrieving device status")
+				if devices, err := GetDeviceList(); err != nil {
+					fmt.Println(err)
+				} else {
+					for _, device := range devices {
+						log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
+						x.getStatusMetric(device.DeviceSerialNumber).Set(float64(device.Status))
+					}
+				}
 			}
 			time.Sleep(time.Duration(x.Frequency) * time.Second)
 		}
@@ -144,22 +208,14 @@ func (x *ServeCommand) realtime() {
 func (x *ServeCommand) processResponse(data []RealTimeData) {
 	for _, result := range data {
 		if last_reported_time[result.DeviceSN].Equal(result.Time.Time) {
-			if x.Verbose {
-				log.Printf("No update for %s.", result.DeviceSN)
-			}
+			x.verbose("No update for %s.", result.DeviceSN)
 			continue
 		}
 		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Plural(len(result.Variables)), result.DeviceSN, result.Time.Time)
 		last_reported_time[result.DeviceSN] = result.Time.Time
 		for _, variable := range result.Variables {
-			gauge := metrics[variable.Variable]
-			if gauge == nil {
-				gauge = x.setupGauge(variable.Variable, result.DeviceSN)
-			}
-			if x.Verbose {
-				log.Printf("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
-			}
-			gauge.Set(variable.Value.Number)
+			x.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
+			x.getRealTimeMetric(variable.Variable, result.DeviceSN).Set(variable.Value.Number)
 		}
 	}
 }

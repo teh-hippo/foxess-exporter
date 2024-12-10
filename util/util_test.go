@@ -23,3 +23,10 @@ func TestToReader(t *testing.T) {
 	}
 	assert.Equal(t, want, got)
 }
+
+func TestPlural(t *testing.T) {
+	assert.Equal(t, "", Plural(1))
+	assert.Equal(t, "s", Plural(0))
+	assert.Equal(t, "s", Plural(2))
+	assert.Equal(t, "s", Plural(789))
+}

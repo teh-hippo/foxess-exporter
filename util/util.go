@@ -17,6 +17,13 @@ func ToReader(v interface{}) (io.Reader, error) {
 	return bytes.NewReader(data), nil
 }
 
+func Plural(len int) string {
+	if len == 1 {
+		return ""
+	}
+	return "s"
+}
+
 func FromFile(fileName string) ([]byte, error) {
 	file, err := os.Open(fileName)
 	if err != nil {

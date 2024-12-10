@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClamp(t *testing.T) {
+func TestApiUsageWontExceedAllowance(t *testing.T) {
 	// Defaults
 	serveCommand.RealTimeIntervalSec = 120
 	serveCommand.StatusIntervalSec = 900
@@ -24,4 +24,20 @@ func TestClamp(t *testing.T) {
 	serveCommand.StatusIntervalSec = 60
 	actual = serveCommand.validateIntervals()
 	assert.NotNil(t, actual)
+}
+
+func TestUpdateIntervalsAreClamped(t *testing.T) {
+	// RealTimeIntervalSec
+	serveCommand.RealTimeIntervalSec = 59
+	serveCommand.StatusIntervalSec = 61
+	serveCommand.validateIntervals()
+	assert.Equal(t, int64(60), serveCommand.RealTimeIntervalSec)
+	assert.Equal(t, int64(61), serveCommand.StatusIntervalSec)
+
+	// StatusIntervalSec
+	serveCommand.RealTimeIntervalSec = 61
+	serveCommand.StatusIntervalSec = 59
+	serveCommand.validateIntervals()
+	assert.Equal(t, int64(61), serveCommand.RealTimeIntervalSec)
+	assert.Equal(t, int64(60), serveCommand.StatusIntervalSec)
 }

@@ -9,6 +9,12 @@ type ApiQuota struct {
 	cond     *sync.Cond
 }
 
+func NewApiQuota() *ApiQuota {
+	q := &ApiQuota{}
+	q.cond = sync.NewCond(q)
+	return q
+}
+
 func (a *ApiQuota) update() error {
 	a.Lock()
 	defer a.Unlock()

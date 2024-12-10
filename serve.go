@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -40,9 +39,7 @@ var metrics = make(map[string]prometheus.Gauge)
 var last_reported_time = make(map[string]time.Time)
 var devicesChan = make(chan *[]Device, 1)
 var deviceSerialNumbersChan = make(chan *[]string, 1)
-var apiQuota = &ApiQuota{
-	cond: sync.NewCond(&sync.Mutex{}),
-}
+var apiQuota = NewApiQuota()
 
 func init() {
 	parser.AddCommand("serve", "Start the exporter", "Start the exporter", &serveCommand)

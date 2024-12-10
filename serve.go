@@ -82,23 +82,6 @@ func (x *ServeCommand) startDeviceStatusMetric() {
 	}()
 }
 
-func (x *ServeCommand) startRealTimeMetrics() {
-	go func() {
-		for {
-			if x.isApiQuotaAvailable() {
-				x.verbose("Retrieving device real-time data")
-				if data, err := GetRealTimeData(*inverters(), serveCommand.Variables); err != nil {
-					fmt.Println(err)
-				} else {
-
-					x.handleRealTimeData(data)
-				}
-			}
-			time.Sleep(time.Duration(x.RealTimeIntervalSec) * time.Second)
-		}
-	}()
-}
-
 func (x *ServeCommand) Execute(args []string) error {
 	x.startApiQuotaManagement()
 
@@ -115,25 +98,6 @@ func (x *ServeCommand) Execute(args []string) error {
 	return http.ListenAndServe(":"+fmt.Sprint(x.Port), nil)
 }
 
-func discovery(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Discovery request received.")
-	devices := <-devicesChan
-	response := &DiscoveryResponse{}
-	for _, device := range *devices {
-		response.Items = append(response.Items,
-			DiscoveryTarget{
-				Targets: []string{device.DeviceSerialNumber},
-				Labels:  []Device{device}})
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	enc := json.NewEncoder(w)
-	if err := enc.Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
 func (x *ServeCommand) startApiQuotaManagement() {
 	go func() {
 		for {
@@ -144,6 +108,23 @@ func (x *ServeCommand) startApiQuotaManagement() {
 				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
 			}
 			time.Sleep(10 * time.Minute)
+		}
+	}()
+}
+
+func (x *ServeCommand) startRealTimeMetrics() {
+	go func() {
+		for {
+			if x.isApiQuotaAvailable() {
+				x.verbose("Retrieving device real-time data")
+				if data, err := GetRealTimeData(*inverters(), serveCommand.Variables); err != nil {
+					fmt.Println(err)
+				} else {
+
+					x.handleRealTimeData(data)
+				}
+			}
+			time.Sleep(time.Duration(x.RealTimeIntervalSec) * time.Second)
 		}
 	}()
 }
@@ -167,35 +148,31 @@ func (x *ServeCommand) startDiscovery() {
 	}()
 }
 
+func discovery(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Discovery request received.")
+	devices := <-devicesChan
+	response := &DiscoveryResponse{}
+	for _, device := range *devices {
+		response.Items = append(response.Items,
+			DiscoveryTarget{
+				Targets: []string{device.DeviceSerialNumber},
+				Labels:  []Device{device}})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func inverters() *[]string {
 	if len(serveCommand.Inverters) == 0 {
 		return <-deviceSerialNumbersChan
 	} else {
 		return &serveCommand.Inverters
 	}
-}
-
-func (x *ServeCommand) isApiQuotaAvailable() bool {
-	return apiQuota.current().Remaining > 0
-}
-
-func (x *ServeCommand) realTimeMetric(variable string, inverter string) prometheus.Gauge {
-	metric := metrics[variable]
-	if metric != nil {
-		return metric
-	}
-	x.verbose("Creating '%s' gauge for '%s'.\n", variable, inverter)
-	metric = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "foxess_realtime_data",
-		Help: "Data from the FoxESS platform.",
-		ConstLabels: prometheus.Labels{
-			"inverter": inverter,
-			"variable": variable,
-		},
-	})
-	metrics[variable] = metric
-	reg.MustRegister(metric)
-	return metric
 }
 
 func (x *ServeCommand) statusMetric(inverter string) prometheus.Gauge {
@@ -230,6 +207,29 @@ func (x *ServeCommand) handleRealTimeData(data []RealTimeData) {
 			x.realTimeMetric(variable.Variable, result.DeviceSN).Set(variable.Value.Number)
 		}
 	}
+}
+
+func (x *ServeCommand) realTimeMetric(variable string, inverter string) prometheus.Gauge {
+	metric := metrics[variable]
+	if metric != nil {
+		return metric
+	}
+	x.verbose("Creating '%s' gauge for '%s'.\n", variable, inverter)
+	metric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "foxess_realtime_data",
+		Help: "Data from the FoxESS platform.",
+		ConstLabels: prometheus.Labels{
+			"inverter": inverter,
+			"variable": variable,
+		},
+	})
+	metrics[variable] = metric
+	reg.MustRegister(metric)
+	return metric
+}
+
+func (x *ServeCommand) isApiQuotaAvailable() bool {
+	return apiQuota.current().Remaining > 0
 }
 
 func (x *ServeCommand) verbose(format string, v ...any) {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type DiscoveryTarget struct {
@@ -25,15 +26,17 @@ type DiscoveryResponse struct {
 type ServeCommand struct {
 	Port          int      `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
 	Inverters     []string `short:"i" long:"inverter" description:"Inverter serial numbers" required:"true" env:"INVERTERS" env-delim:","`
-	Variables     []string `short:"v" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
+	Variables     []string `short:"V" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
 	Frequency     int64    `short:"f" long:"frequency" description:"Frequency of updates (in seconds)." env:"FREQUENCY" default:"60" required:"true"`
 	Discovery     string   `short:"d" long:"discovery" description:"Configure discovery behaviour." required:"false" choices:"off,on,only" default:"off"`
 	ApiUsageBlock float64  `short:"l" long:"limit" description:"Block further API calls being made once usage crosses the provided percentage." required:"false" default:"90" env:"USAGE_LIMIT"`
+	Verbose       bool     `short:"v" long:"verbose" description:"Enable verbose logging." required:"false"`
 }
 
 var serveCommand ServeCommand
 var reg = prometheus.NewRegistry()
-var gauges = make(map[string]prometheus.Gauge)
+var metrics = make(map[string]prometheus.Gauge)
+var last_reported_time = make(map[string]time.Time)
 var devicesChan = make(chan *[]Device, 1)
 var deviceSerialNumbersChan = make(chan *[]string, 1)
 var apiUsageChan = make(chan *ApiUsage, 1)
@@ -83,8 +86,10 @@ func Discovery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (x *ServeCommand) setupGauge(variable string, inverter string) prometheus.Gauge {
-	log.Printf("Creating '%s' gauge for '%s'.\n", variable, inverter)
-	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
+	if x.Verbose {
+		log.Printf("Creating '%s' gauge for '%s'.\n", variable, inverter)
+	}
+	metric := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "foxess_realtime_data",
 		Help: "Data from the FoxESS platform.",
 		ConstLabels: prometheus.Labels{
@@ -92,9 +97,9 @@ func (x *ServeCommand) setupGauge(variable string, inverter string) prometheus.G
 			"variable": variable,
 		},
 	})
-	gauges[variable] = gauge
-	reg.MustRegister(gauge)
-	return gauge
+	metrics[variable] = metric
+	reg.MustRegister(metric)
+	return metric
 }
 
 func (x *ServeCommand) reportusage() {
@@ -138,12 +143,22 @@ func (x *ServeCommand) realtime() {
 
 func (x *ServeCommand) processResponse(data []RealTimeData) {
 	for _, result := range data {
+		if last_reported_time[result.DeviceSN].Equal(result.Time.Time) {
+			if x.Verbose {
+				log.Printf("No update for %s.", result.DeviceSN)
+			}
+			continue
+		}
+		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Plural(len(result.Variables)), result.DeviceSN, result.Time.Time)
+		last_reported_time[result.DeviceSN] = result.Time.Time
 		for _, variable := range result.Variables {
-			gauge := gauges[variable.Variable]
+			gauge := metrics[variable.Variable]
 			if gauge == nil {
 				gauge = x.setupGauge(variable.Variable, result.DeviceSN)
 			}
-			log.Printf("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
+			if x.Verbose {
+				log.Printf("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
+			}
 			gauge.Set(variable.Value.Number)
 		}
 	}

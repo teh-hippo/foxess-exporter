@@ -30,3 +30,9 @@ func TestPlural(t *testing.T) {
 	assert.Equal(t, "s", Plural(2))
 	assert.Equal(t, "s", Plural(789))
 }
+
+func TestClamp(t *testing.T) {
+	assert.Equal(t, int64(10), Clamp(10, 0))
+	assert.Equal(t, int64(0), Clamp(-1, 0))
+	assert.Equal(t, int64(0), Clamp(0, 0))
+}

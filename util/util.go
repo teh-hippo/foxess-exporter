@@ -47,6 +47,13 @@ func JsonToStdOut(v any) error {
 	return enc.Encode(v)
 }
 
+func Clamp(value int64, min int64) int64 {
+	if value < min {
+		return min
+	}
+	return value
+}
+
 func ToFile(fileName string, contents []byte) error {
 	// Create or open the file
 	file, err := os.Create(fileName)

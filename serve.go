@@ -44,7 +44,9 @@ var metricsLock = sync.Mutex{}
 var apiQuota = NewApiQuota()
 
 func init() {
-	parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand)
+	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
+		panic(err)
+	}
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -93,7 +95,8 @@ func (x *ServeCommand) Execute(args []string) error {
 		http.Handle("/discovery", http.HandlerFunc(discovery))
 	}
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
-	return http.ListenAndServe(":"+fmt.Sprint(x.Port), nil)
+	server := &http.Server{Addr: ":" + fmt.Sprint(x.Port), ReadHeaderTimeout: 3 * time.Second}
+	return server.ListenAndServe()
 }
 
 func (x *ServeCommand) startApiQuotaManagement() {

@@ -59,7 +59,9 @@ type RealTimeData struct {
 var realTimeCommand RealTimeCommand
 
 func init() {
-	parser.AddCommand("realtime", "Get real-time data", "Get the current real-time data for an inverter.", &realTimeCommand)
+	if _, err := parser.AddCommand("realtime", "Get real-time data", "Get the current real-time data for an inverter.", &realTimeCommand); err != nil {
+		panic(err)
+	}
 }
 
 func (x *RealTimeCommand) Execute(args []string) error {

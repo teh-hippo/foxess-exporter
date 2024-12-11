@@ -51,7 +51,9 @@ type DeviceListResponse struct {
 var devicesCommand DevicesCommand
 
 func init() {
-	parser.AddCommand("devices", "List devices", "Obtains all devices the provided key has access to", &devicesCommand)
+	if _, err := parser.AddCommand("devices", "List devices", "Obtains all devices the provided key has access to", &devicesCommand); err != nil {
+		panic(err)
+	}
 }
 
 func (x *DevicesCommand) Execute(args []string) error {

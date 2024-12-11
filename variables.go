@@ -30,7 +30,9 @@ type VariablesCommand struct {
 var variablesCommand VariablesCommand
 
 func init() {
-	parser.AddCommand("variables", "List of supported variables", "Retrieves from FoxESS all variables that can be requested for history.", &variablesCommand)
+	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieves from FoxESS all variables that can be requested for history.", &variablesCommand); err != nil {
+		panic(err)
+	}
 }
 
 func (x *VariablesCommand) Execute(args []string) error {

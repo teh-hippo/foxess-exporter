@@ -30,14 +30,14 @@ func TestUpdateIntervalsAreClamped(t *testing.T) {
 	// RealTimeIntervalSec
 	serveCommand.RealTimeIntervalSec = 59
 	serveCommand.StatusIntervalSec = 61
-	serveCommand.validateIntervals()
+	assert.NotNil(t, serveCommand.validateIntervals())
 	assert.Equal(t, int64(60), serveCommand.RealTimeIntervalSec)
 	assert.Equal(t, int64(61), serveCommand.StatusIntervalSec)
 
 	// StatusIntervalSec
 	serveCommand.RealTimeIntervalSec = 61
 	serveCommand.StatusIntervalSec = 59
-	serveCommand.validateIntervals()
+	assert.NotNil(t, serveCommand.validateIntervals())
 	assert.Equal(t, int64(61), serveCommand.RealTimeIntervalSec)
 	assert.Equal(t, int64(60), serveCommand.StatusIntervalSec)
 }

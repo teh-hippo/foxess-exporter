@@ -63,7 +63,9 @@ type VariableHistory struct {
 var historyCommand HistoryCommand
 
 func init() {
-	parser.AddCommand("history", "Get the history", "Get the history of a variable", &historyCommand)
+	if _, err := parser.AddCommand("history", "Get the history", "Get the history of a variable", &historyCommand); err != nil {
+		panic(err)
+	}
 }
 
 func (x *HistoryCommand) Execute(args []string) error {

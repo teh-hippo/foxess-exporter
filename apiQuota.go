@@ -9,9 +9,7 @@ type ApiQuota struct {
 }
 
 func NewApiQuota() *ApiQuota {
-	return &ApiQuota{
-		cond: sync.NewCond(&sync.Mutex{}),
-	}
+	return &ApiQuota{cond: sync.NewCond(&sync.Mutex{})}
 }
 
 func (a *ApiQuota) update() error {
@@ -29,6 +27,7 @@ func (a *ApiQuota) update() error {
 
 func (a *ApiQuota) current() *ApiUsage {
 	a.cond.L.Lock()
+	defer a.cond.L.Unlock()
 	for !a.updated {
 		a.cond.Wait()
 	}

@@ -35,14 +35,15 @@ func NewRequest(apiKey string, operation string, path string, params interface{}
 	if params != nil {
 		body, err = util.ToReader(params)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to transform params to a reader: %w", err)
 		}
 	}
 
 	request, err := http.NewRequest(operation, url, body)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create %s request to %s: %w", operation, url, err)
 	}
+
 	request.Header.Set("token", apiKey)
 	request.Header.Set("signature", signature)
 	request.Header.Set("timestamp", fmt.Sprint(timestamp))
@@ -50,12 +51,12 @@ func NewRequest(apiKey string, operation string, path string, params interface{}
 	request.Header.Set("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to perform %s request to %s: %w", operation, url, err)
 	}
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read the body of %s request to %s: %w", operation, url, err)
 	}
 
 	if debug {
@@ -66,11 +67,12 @@ func NewRequest(apiKey string, operation string, path string, params interface{}
 	}
 
 	if err = json.Unmarshal(data, result); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal response from %s request to %s: %w", operation, url, err)
 	}
 
 	if debug {
 		if err = util.ToFile(fmt.Sprintf("debug-%s-%d-marshalled.json", operationName, timestamp), data); err != nil {
+			// Output the error, but continue with the result.
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
 		}
 	}

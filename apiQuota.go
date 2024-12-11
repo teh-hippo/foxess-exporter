@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 type ApiQuota struct {
 	apiUsage *ApiUsage
@@ -15,14 +18,15 @@ func NewApiQuota() *ApiQuota {
 func (a *ApiQuota) update() error {
 	a.cond.L.Lock()
 	defer a.cond.L.Unlock()
-	if apiUsage, err := GetApiUsage(); err != nil {
-		return err
-	} else {
-		a.apiUsage = apiUsage
-		a.updated = true
-		a.cond.Broadcast()
-		return nil
+	apiUsage, err := GetApiUsage()
+	if err != nil {
+		return fmt.Errorf("failed to get API usage: %w", err)
 	}
+
+	a.apiUsage = apiUsage
+	a.updated = true
+	a.cond.Broadcast()
+	return nil
 }
 
 func (a *ApiQuota) current() *ApiUsage {

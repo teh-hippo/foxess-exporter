@@ -34,16 +34,20 @@ func init() {
 }
 
 func (x *ApiUsageCommand) Execute(args []string) error {
-	if apiUsage, err := GetApiUsage(); err != nil {
-		return err
-	} else if x.Format == "table" {
+	apiUsage, err := GetApiUsage()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve the latest api usage: %w", err)
+	}
+
+	switch x.Format {
+	case "table":
 		tbl := table.New("Total", "Remaining", "Used")
 		tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", apiUsage.PercentageUsed))
 		tbl.Print()
 		return nil
-	} else if x.Format == "json" {
+	case "json":
 		return util.JsonToStdOut(apiUsage)
-	} else {
+	default:
 		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}
 }
@@ -52,18 +56,21 @@ func GetApiUsage() (*ApiUsage, error) {
 	response := &AccessCountResponse{}
 	err := foxess.NewRequest(options.ApiKey, "GET", "/op/v0/user/getAccessCount", nil, response, options.Debug)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get latest api usage: %w", err)
 	}
 
 	if err = foxess.IsError(response.ErrorNumber, ""); err != nil {
 		return nil, err
 	}
 
-	var total, remaining float64
-	if total, err = response.Result.Total.Float64(); err != nil {
-		return nil, err
-	} else if remaining, err = response.Result.Remaining.Float64(); err != nil {
-		return nil, err
+	total, err := response.Result.Total.Float64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to float '%v': %w", response.Result.Total, err)
+	}
+
+	remaining, err := response.Result.Remaining.Float64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to float '%v': %w", response.Result.Remaining, err)
 	}
 
 	percentage := (total - remaining) / total * 100

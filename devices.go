@@ -19,9 +19,9 @@ type DeviceListRequest struct {
 }
 
 const (
-	DEVICES_STATUS_ONLINE  = 1
-	DEVICES_STATUS_FAULT   = 2
-	DEVICES_STATUS_OFFLINE = 3
+	DEVICES_STATUS_ONLINE = iota + 1
+	DEVICES_STATUS_FAULT
+	DEVICES_STATUS_OFFLINE
 )
 
 const PageSize = 100
@@ -59,18 +59,19 @@ func (x *DevicesCommand) Execute(args []string) error {
 		return fmt.Errorf("full output is not supported for JSON format")
 	}
 
-	if devices, err := GetDeviceList(); err != nil {
-		return err
-	} else {
-		switch x.Format {
-		case "table":
-			x.OutputAsTable(devices)
-			return nil
-		case "json":
-			return util.JsonToStdOut(devices)
-		default:
-			return fmt.Errorf("unsupported output format: %s", x.Format)
-		}
+	devices, err := GetDeviceList()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve device list: %w", err)
+	}
+
+	switch x.Format {
+	case "table":
+		x.OutputAsTable(devices)
+		return nil
+	case "json":
+		return util.JsonToStdOut(devices)
+	default:
+		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}
 }
 

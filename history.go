@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/rodaine/table"
@@ -33,9 +34,11 @@ type CustomTime struct {
 }
 
 func (t *CustomTime) UnmarshalJSON(b []byte) (err error) {
-	date, err := time.Parse(`"2006-01-02 15:04:05 MST-0700"`, string(b))
+	value := string(b)
+	const format string = `"2006-01-02 15:04:05 MST-0700"`
+	date, err := time.Parse(format, value)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse '%s' as date of format '%s': %w", value, format, err)
 	}
 	t.Time = date
 	return
@@ -66,7 +69,7 @@ func init() {
 func (x *HistoryCommand) Execute(args []string) error {
 	if x.Begin == 0 || x.End == 0 {
 		if x.Begin != x.End {
-			return errors.New("when using begin/end, must provided both values")
+			return errors.New("provide both begin and end, or neither")
 		}
 
 		now := time.Now()
@@ -76,13 +79,16 @@ func (x *HistoryCommand) Execute(args []string) error {
 		x.End = startOfDay.UnixMilli()
 	}
 
-	if response, err := GetVariableHistory(x.Inverter, x.Begin, x.End, x.Variables); err != nil {
-		return err
-	} else if err = x.outputResult(response); err != nil {
-		return err
-	} else {
-		return nil
+	response, err := GetVariableHistory(x.Inverter, x.Begin, x.End, x.Variables)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve history for %s from %d -> %d: %w", x.Inverter, x.Begin, x.End, err)
 	}
+
+	if err = x.writeResult(response); err != nil {
+		return fmt.Errorf("failed to output result: %w", err)
+	}
+
+	return nil
 }
 
 func GetVariableHistory(inverter string, begin, end int64, variables []string) ([]VariableHistory, error) {
@@ -110,7 +116,7 @@ func GetVariableHistory(inverter string, begin, end int64, variables []string) (
 	return result, nil
 }
 
-func (x *HistoryCommand) outputResult(history []VariableHistory) error {
+func (x *HistoryCommand) writeResult(history []VariableHistory) error {
 	switch x.Format {
 	case "table":
 		tbl := table.New("Variable", "Name", "Unit", "Time", "Value")

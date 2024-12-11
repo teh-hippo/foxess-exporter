@@ -25,10 +25,10 @@ func TestToReader(t *testing.T) {
 }
 
 func TestPlural(t *testing.T) {
-	assert.Equal(t, "", Plural(1))
-	assert.Equal(t, "s", Plural(0))
-	assert.Equal(t, "s", Plural(2))
-	assert.Equal(t, "s", Plural(789))
+	assert.Equal(t, "", Pluralise(1))
+	assert.Equal(t, "s", Pluralise(0))
+	assert.Equal(t, "s", Pluralise(2))
+	assert.Equal(t, "s", Pluralise(789))
 }
 
 func TestClamp(t *testing.T) {

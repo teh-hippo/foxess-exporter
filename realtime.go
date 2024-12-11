@@ -25,19 +25,18 @@ type NumberAsNil struct {
 }
 
 func (t *NumberAsNil) UnmarshalJSON(b []byte) (err error) {
-	val := string(b)
-	if len(b) >= 2 && val[0] == '"' {
+	if len(b) >= 2 && b[0] == '"' {
 		b = b[1 : len(b)-1]
 		if len(b) == 0 {
 			return nil
 		}
 	}
-	err = json.Unmarshal(b, &t.Number)
-	if err != nil {
-		fmt.Print(val)
-		return err
+
+	if err = json.Unmarshal(b, &t.Number); err != nil {
+		return fmt.Errorf("failed to parse '%s': %w", b, err)
 	}
-	return err
+
+	return nil
 }
 
 type RealTimeResponse struct {
@@ -64,21 +63,24 @@ func init() {
 }
 
 func (x *RealTimeCommand) Execute(args []string) error {
-	if data, err := GetRealTimeData(x.Inverters, x.Variables); err != nil {
+	data, err := GetRealTimeData(x.Inverters, x.Variables)
+	if err != nil {
 		return err
-	} else if x.Format == "table" {
+	}
+
+	switch x.Format {
+	case "table":
 		tbl := table.New("Device", "Time", "Variable", "Name", "Unit", "Value")
 		for _, item := range data {
 			for _, variable := range item.Variables {
 				tbl.AddRow(item.DeviceSN, item.Time, variable.Variable, variable.Name, variable.Unit, variable.Value.Number)
 			}
 		}
-
 		tbl.Print()
 		return nil
-	} else if x.Format == "json" {
+	case "json":
 		return util.JsonToStdOut(data)
-	} else {
+	default:
 		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}
 }

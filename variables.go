@@ -33,10 +33,14 @@ func init() {
 	parser.AddCommand("variables", "List of supported variables", "Retrieves from FoxESS all variables that can be requested for history.", &variablesCommand)
 }
 
-func (vc *VariablesCommand) Execute(args []string) error {
-	if variables, err := getVariables(vc.GridOnly); err != nil {
+func (x *VariablesCommand) Execute(args []string) error {
+	variables, err := getVariables(x.GridOnly)
+	if err != nil {
 		return nil
-	} else if vc.Format == "table" {
+	}
+
+	switch x.Format {
+	case "table":
 		tbl := table.New("Variable Name", "Unit", "Grid Tied", "Energy Storage")
 		for _, variable := range *variables {
 			for key := range maps.Keys(variable) {
@@ -46,10 +50,10 @@ func (vc *VariablesCommand) Execute(args []string) error {
 		}
 		tbl.Print()
 		return nil
-	} else if vc.Format == "json" {
+	case "json":
 		return util.JsonToStdOut(variables)
-	} else {
-		return fmt.Errorf("unsupported output format: %s", vc.Format)
+	default:
+		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}
 }
 

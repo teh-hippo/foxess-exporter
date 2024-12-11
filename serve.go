@@ -199,7 +199,7 @@ func (x *ServeCommand) handleRealTimeData(data []RealTimeData) {
 			x.verbose("No update for %s.", result.DeviceSN)
 			continue
 		}
-		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Plural(len(result.Variables)), result.DeviceSN, result.Time.Time)
+		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)
 		last_reported_time[result.DeviceSN] = result.Time.Time
 		for _, variable := range result.Variables {
 			x.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)

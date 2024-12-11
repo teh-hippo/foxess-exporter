@@ -12,12 +12,12 @@ import (
 func ToReader(v interface{}) (io.Reader, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal struct: %w", err)
+		return nil, fmt.Errorf("failed to marshal struct: %v %w", v, err)
 	}
 	return bytes.NewReader(data), nil
 }
 
-func Plural(len int) string {
+func Pluralise(len int) string {
 	if len == 1 {
 		return ""
 	}
@@ -68,6 +68,5 @@ func ToFile(fileName string, contents []byte) error {
 		return fmt.Errorf("failed to write to file '%s': %w", fileName, err)
 	}
 
-	log.Printf("Wrote file: %s\n", fileName)
 	return nil
 }

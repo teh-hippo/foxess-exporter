@@ -38,22 +38,22 @@ jobs:
       run: go test -v ./...
 
     - name: Verify API Usage
-      run: $(go run  ./... api-usage -k ${{secrets.API_KEY}} 2>/dev/null)
+      run: go run  ./... api-usage -k ${{secrets.API_KEY}} > /dev/null 2>&1
 
     - name: Verify Devices
-      run: $(go run  ./... api-usage -k ${{secrets.API_KEY}} 2>/dev/null)
+      run: go run  ./... api-usage -k ${{secrets.API_KEY}} > /dev/null2>&1
 
     - name: Verify History
-      run: $(go run  ./... history -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} -V todayYield 2>/dev/null )
+      run: go run  ./... history -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} -V todayYield > /dev/null 2>&1
 
     - name: Verify Real-time
-      run: $(go run  ./... realtime -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} 2>/dev/null)
+      run: go run  ./... realtime -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} > /dev/null2>&1
 
     - name: Verify Variables (Table)
-      run: $(go run  ./... variables -k ${{secrets.API_KEY}} -o table 2>/dev/null )
+      run: go run  ./... variables -k ${{secrets.API_KEY}} -o table > /dev/null 2>&1
 
     - name: Verify Variables (Table-GridOnly)
-      run: $(go run  ./... variables -k ${{secrets.API_KEY}} -o table -g 2>/dev/null )
+      run: go run  ./... variables -k ${{secrets.API_KEY}} -o table -g > /dev/null 2>&1
 
     - name: Verify Variables (Json)
-      run: $(go run  ./... variables -k ${{secrets.API_KEY}} -o json 2>/dev/null )
+      run: go run  ./... variables -k ${{secrets.API_KEY}} -o json > /dev/null 2>&1

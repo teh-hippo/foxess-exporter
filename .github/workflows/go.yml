@@ -41,13 +41,13 @@ jobs:
       run: go run  ./... api-usage -k ${{secrets.API_KEY}} > /dev/null 2>&1
 
     - name: Verify Devices
-      run: go run  ./... api-usage -k ${{secrets.API_KEY}} > /dev/null2>&1
+      run: go run  ./... api-usage -k ${{secrets.API_KEY}} > /dev/null 2>&1
 
     - name: Verify History
       run: go run  ./... history -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} -V todayYield > /dev/null 2>&1
 
     - name: Verify Real-time
-      run: go run  ./... realtime -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} > /dev/null2>&1
+      run: go run  ./... realtime -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} > /dev/null 2>&1
 
     - name: Verify Variables (Table)
       run: go run  ./... variables -k ${{secrets.API_KEY}} -o table > /dev/null 2>&1

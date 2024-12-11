@@ -106,7 +106,7 @@ func (x *ServeCommand) startApiQuotaManagement() {
 				fmt.Println(err)
 			} else {
 				apiUsage := apiQuota.current()
-				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
+				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Total-apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
 			}
 			time.Sleep(10 * time.Minute)
 		}

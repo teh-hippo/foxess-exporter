@@ -118,7 +118,6 @@ func (x *ServeCommand) startRealTimeMetrics() {
 				if data, err := GetRealTimeData(*inverters(), serveCommand.Variables); err != nil {
 					fmt.Println(err)
 				} else {
-
 					x.handleRealTimeData(data)
 				}
 			}

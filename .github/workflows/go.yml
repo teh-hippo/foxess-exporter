@@ -10,8 +10,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build:
+
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -36,3 +36,24 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+
+    - name: Verify API Usage
+      run: $(go run  ./... api-usage -k ${{secrets.API_KEY}} 2>/dev/null)
+
+    - name: Verify Devices
+      run: $(go run  ./... api-usage -k ${{secrets.API_KEY}} 2>/dev/null)
+
+    - name: Verify History
+      run: $(go run  ./... history -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} -V todayYield 2>/dev/null )
+
+    - name: Verify Real-time
+      run: $(go run  ./... realtime -k ${{secrets.API_KEY}} -i ${{secrets.INVERTER}} 2>/dev/null)
+
+    - name: Verify Variables (Table)
+      run: $(go run  ./... variables -k ${{secrets.API_KEY}} -o table 2>/dev/null )
+
+    - name: Verify Variables (Table-GridOnly)
+      run: $(go run  ./... variables -k ${{secrets.API_KEY}} -o table -g 2>/dev/null )
+
+    - name: Verify Variables (Json)
+      run: $(go run  ./... variables -k ${{secrets.API_KEY}} -o json 2>/dev/null )

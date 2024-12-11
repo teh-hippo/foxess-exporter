@@ -30,7 +30,9 @@ type ApiUsage struct {
 var apiUsageCommand ApiUsageCommand
 
 func init() {
-	parser.AddCommand("api-usage", "Show FoxESS API usage", "Show FoxESS API usage", &apiUsageCommand)
+	if _, err := parser.AddCommand("api-usage", "Show FoxESS API usage", "Show FoxESS API usage", &apiUsageCommand); err != nil {
+		panic(err)
+	}
 }
 
 func (x *ApiUsageCommand) Execute(args []string) error {

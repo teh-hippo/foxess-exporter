@@ -3,21 +3,20 @@ package main
 import "sync"
 
 type ApiQuota struct {
-	sync.Mutex
 	apiUsage *ApiUsage
 	updated  bool
 	cond     *sync.Cond
 }
 
 func NewApiQuota() *ApiQuota {
-	q := &ApiQuota{}
-	q.cond = sync.NewCond(q)
-	return q
+	return &ApiQuota{
+		cond: sync.NewCond(&sync.Mutex{}),
+	}
 }
 
 func (a *ApiQuota) update() error {
-	a.Lock()
-	defer a.Unlock()
+	a.cond.L.Lock()
+	defer a.cond.L.Unlock()
 	if apiUsage, err := GetApiUsage(); err != nil {
 		return err
 	} else {
@@ -29,9 +28,7 @@ func (a *ApiQuota) update() error {
 }
 
 func (a *ApiQuota) current() *ApiUsage {
-	a.Lock()
-	defer a.Unlock()
-
+	a.cond.L.Lock()
 	for !a.updated {
 		a.cond.Wait()
 	}

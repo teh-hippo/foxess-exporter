@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -39,10 +40,11 @@ var metrics = make(map[string]prometheus.Gauge)
 var last_reported_time = make(map[string]time.Time)
 var devicesChan = make(chan *[]Device, 1)
 var deviceSerialNumbersChan = make(chan *[]string, 1)
+var metricsLock = sync.Mutex{}
 var apiQuota = NewApiQuota()
 
 func init() {
-	parser.AddCommand("serve", "Start the exporter", "Start the exporter", &serveCommand)
+	parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand)
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -172,6 +174,8 @@ func inverters() *[]string {
 }
 
 func (x *ServeCommand) statusMetric(inverter string) prometheus.Gauge {
+	metricsLock.Lock()
+	defer metricsLock.Unlock()
 	metric := metrics[inverter]
 	if metric != nil {
 		return metric
@@ -206,6 +210,8 @@ func (x *ServeCommand) handleRealTimeData(data []RealTimeData) {
 }
 
 func (x *ServeCommand) realTimeMetric(variable string, inverter string) prometheus.Gauge {
+	metricsLock.Lock()
+	defer metricsLock.Unlock()
 	metric := metrics[variable]
 	if metric != nil {
 		return metric

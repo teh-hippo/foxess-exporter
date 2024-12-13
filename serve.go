@@ -41,8 +41,9 @@ var last_reported_time = make(map[string]time.Time)
 var deviceList *[]Device
 var deviceIds *[]string
 var devicesCond = sync.NewCond(&sync.Mutex{})
+var apiCond = sync.NewCond(&sync.Mutex{})
 var metricsLock = sync.Mutex{}
-var apiQuota = NewApiQuota()
+var apiUsage *ApiUsage
 
 func init() {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
@@ -103,15 +104,27 @@ func (x *ServeCommand) Execute(args []string) error {
 func (x *ServeCommand) startApiQuotaManagement() {
 	go func() {
 		for {
-			if err := apiQuota.update(); err != nil {
+			a, err := updateApi()
+			if err != nil {
 				fmt.Println(err)
-			} else {
-				apiUsage := apiQuota.current()
-				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Total-apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
 			}
+
+			log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
 			time.Sleep(10 * time.Minute)
 		}
 	}()
+}
+
+func updateApi() (*ApiUsage, error) {
+	apiCond.L.Lock()
+	defer apiCond.L.Unlock()
+	a, err := GetApiUsage()
+	if err != nil {
+		return nil, fmt.Errorf("failed to update API usage: %w", err)
+	}
+	apiUsage = a
+	apiCond.Broadcast()
+	return a, nil
 }
 
 func (x *ServeCommand) startRealTimeMetrics() {
@@ -253,7 +266,12 @@ func (x *ServeCommand) realTimeMetric(variable string, inverter string) promethe
 }
 
 func (x *ServeCommand) isApiQuotaAvailable() bool {
-	return apiQuota.current().Remaining > 0
+	apiCond.L.Lock()
+	defer apiCond.L.Unlock()
+	if apiUsage == nil {
+		apiCond.Wait()
+	}
+	return apiUsage.Remaining > 0
 }
 
 func (x *ServeCommand) verbose(format string, v ...any) {

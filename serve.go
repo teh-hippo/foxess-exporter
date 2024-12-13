@@ -30,7 +30,7 @@ type ServeCommand struct {
 	Variables           []string `short:"V" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
 	RealTimeIntervalSec int64    `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data (in seconds)." env:"REAL_TIME_INTERVAL" default:"120" required:"true"`
 	StatusIntervalSec   int64    `short:"S" long:"status-interval" description:"Frequency of updating the status of devices (in seconds)." env:"STATUS_INTERVAL" default:"900" required:"true"`
-	Discovery           string   `short:"d" long:"discovery" description:"Configure discovery behaviour." required:"false" choices:"off,on,only" default:"off"`
+	Discovery           string   `short:"d" long:"discovery" description:"Configure discovery behaviour." required:"false" choices:"off,on,only" default:"off" env:"DISCOVERY"`
 	Verbose             bool     `short:"v" long:"verbose" description:"Enable verbose logging." required:"false"`
 }
 

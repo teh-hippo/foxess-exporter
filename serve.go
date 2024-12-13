@@ -68,7 +68,7 @@ func (x *ServeCommand) validateIntervals() error {
 func (x *ServeCommand) startDeviceStatusMetric() {
 	go func() {
 		for {
-			if x.isApiQuotaAvailable() {
+			if isApiQuotaAvailable() {
 				x.verbose("Retrieving device status")
 				if devices, err := GetDeviceList(); err != nil {
 					fmt.Println(err)
@@ -93,7 +93,7 @@ func (x *ServeCommand) Execute(args []string) error {
 		x.startDeviceStatusMetric()
 	}
 	if x.Discovery != "off" {
-		x.startDiscovery()
+		startDiscovery()
 		http.Handle("/discovery", http.HandlerFunc(discovery))
 	}
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
@@ -130,7 +130,7 @@ func updateApi() (*ApiUsage, error) {
 func (x *ServeCommand) startRealTimeMetrics() {
 	go func() {
 		for {
-			if x.isApiQuotaAvailable() {
+			if isApiQuotaAvailable() {
 				x.verbose("Retrieving device real-time data")
 				if data, err := GetRealTimeData(*inverters(), serveCommand.Variables); err != nil {
 					fmt.Println(err)
@@ -143,7 +143,7 @@ func (x *ServeCommand) startRealTimeMetrics() {
 	}()
 }
 
-func (x *ServeCommand) startDiscovery() {
+func startDiscovery() {
 	go func() {
 		for {
 			log.Print("Updating discovery data")
@@ -265,7 +265,7 @@ func (x *ServeCommand) realTimeMetric(variable string, inverter string) promethe
 	return metric
 }
 
-func (x *ServeCommand) isApiQuotaAvailable() bool {
+func isApiQuotaAvailable() bool {
 	apiCond.L.Lock()
 	defer apiCond.L.Unlock()
 	if apiUsage == nil {

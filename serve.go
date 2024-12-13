@@ -38,8 +38,9 @@ var serveCommand ServeCommand
 var reg = prometheus.NewRegistry()
 var metrics = make(map[string]prometheus.Gauge)
 var last_reported_time = make(map[string]time.Time)
-var devicesChan = make(chan *[]Device, 1)
-var deviceSerialNumbersChan = make(chan *[]string, 1)
+var deviceList *[]Device
+var deviceIds *[]string
+var devicesCond = sync.NewCond(&sync.Mutex{})
 var metricsLock = sync.Mutex{}
 var apiQuota = NewApiQuota()
 
@@ -133,26 +134,40 @@ func (x *ServeCommand) startDiscovery() {
 	go func() {
 		for {
 			log.Print("Updating discovery data")
-			if devices, err := GetDeviceList(); err != nil {
+			if err := updateDevices(); err != nil {
 				fmt.Fprintln(os.Stderr, err)
-			} else {
-				deviceSerialNumbers := make([]string, len(devices))
-				for i, device := range devices {
-					deviceSerialNumbers[i] = device.DeviceSerialNumber
-				}
-				devicesChan <- &devices
-				deviceSerialNumbersChan <- &deviceSerialNumbers
 			}
 			time.Sleep(24 * time.Hour)
 		}
 	}()
 }
 
+func updateDevices() error {
+	devicesCond.L.Lock()
+	defer devicesCond.L.Unlock()
+	if devices, err := GetDeviceList(); err != nil {
+		return fmt.Errorf("failed to retrieve device list: %w", err)
+	} else {
+		deviceSerialNumbers := make([]string, len(devices))
+		for i, device := range devices {
+			deviceSerialNumbers[i] = device.DeviceSerialNumber
+		}
+		deviceList = &devices
+		deviceIds = &deviceSerialNumbers
+		devicesCond.Broadcast()
+	}
+	return nil
+}
+
 func discovery(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Discovery request received.")
-	devices := <-devicesChan
+	devicesCond.L.Lock()
+	defer devicesCond.L.Unlock()
+	if deviceList == nil {
+		devicesCond.Wait()
+	}
 	response := &DiscoveryResponse{}
-	for _, device := range *devices {
+	for _, device := range *deviceList {
 		response.Items = append(response.Items,
 			DiscoveryTarget{
 				Targets: []string{device.DeviceSerialNumber},
@@ -169,7 +184,12 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 
 func inverters() *[]string {
 	if len(serveCommand.Inverters) == 0 {
-		return <-deviceSerialNumbersChan
+		devicesCond.L.Lock()
+		defer devicesCond.L.Unlock()
+		if deviceIds == nil {
+			devicesCond.Wait()
+		}
+		return deviceIds
 	} else {
 		return &serveCommand.Inverters
 	}

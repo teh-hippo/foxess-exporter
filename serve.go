@@ -24,6 +24,19 @@ type DiscoveryResponse struct {
 	Items []DiscoveryTarget
 }
 
+type DeviceCache struct {
+	sync.Mutex
+	deviceList *[]Device
+	deviceIds  *[]string
+	cond       *sync.Cond
+}
+
+type ApiCache struct {
+	sync.Mutex
+	apiUsage *ApiUsage
+	cond     *sync.Cond
+}
+
 type ServeCommand struct {
 	Port                int      `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
 	Inverters           []string `short:"i" long:"inverter" description:"Inverter serial numbers" required:"true" env:"INVERTERS" env-delim:","`
@@ -38,17 +51,16 @@ var serveCommand ServeCommand
 var reg = prometheus.NewRegistry()
 var metrics = make(map[string]prometheus.Gauge)
 var last_reported_time = make(map[string]time.Time)
-var deviceList *[]Device
-var deviceIds *[]string
-var devicesCond = sync.NewCond(&sync.Mutex{})
-var apiCond = sync.NewCond(&sync.Mutex{})
+var deviceCache = DeviceCache{}
+var apiCache = ApiCache{}
 var metricsLock = sync.Mutex{}
-var apiUsage *ApiUsage
 
 func init() {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
 		panic(err)
 	}
+	deviceCache.cond = sync.NewCond(&deviceCache)
+	apiCache.cond = sync.NewCond(&apiCache)
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -116,14 +128,14 @@ func (x *ServeCommand) startApiQuotaManagement() {
 }
 
 func updateApi() (*ApiUsage, error) {
-	apiCond.L.Lock()
-	defer apiCond.L.Unlock()
+	apiCache.Lock()
+	defer apiCache.Unlock()
 	a, err := GetApiUsage()
 	if err != nil {
 		return nil, fmt.Errorf("failed to update API usage: %w", err)
 	}
-	apiUsage = a
-	apiCond.Broadcast()
+	apiCache.apiUsage = a
+	apiCache.cond.Broadcast()
 	return a, nil
 }
 
@@ -156,8 +168,8 @@ func startDiscovery() {
 }
 
 func updateDevices() error {
-	devicesCond.L.Lock()
-	defer devicesCond.L.Unlock()
+	deviceCache.Lock()
+	defer deviceCache.Unlock()
 	if devices, err := GetDeviceList(); err != nil {
 		return fmt.Errorf("failed to retrieve device list: %w", err)
 	} else {
@@ -165,22 +177,22 @@ func updateDevices() error {
 		for i, device := range devices {
 			deviceSerialNumbers[i] = device.DeviceSerialNumber
 		}
-		deviceList = &devices
-		deviceIds = &deviceSerialNumbers
-		devicesCond.Broadcast()
+		deviceCache.deviceList = &devices
+		deviceCache.deviceIds = &deviceSerialNumbers
+		deviceCache.cond.Broadcast()
 	}
 	return nil
 }
 
 func discovery(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Discovery request received.")
-	devicesCond.L.Lock()
-	defer devicesCond.L.Unlock()
-	if deviceList == nil {
-		devicesCond.Wait()
+	deviceCache.Lock()
+	defer deviceCache.Unlock()
+	if deviceCache.deviceList == nil {
+		deviceCache.cond.Wait()
 	}
 	response := &DiscoveryResponse{}
-	for _, device := range *deviceList {
+	for _, device := range *deviceCache.deviceList {
 		response.Items = append(response.Items,
 			DiscoveryTarget{
 				Targets: []string{device.DeviceSerialNumber},
@@ -197,12 +209,12 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 
 func inverters() *[]string {
 	if len(serveCommand.Inverters) == 0 {
-		devicesCond.L.Lock()
-		defer devicesCond.L.Unlock()
-		if deviceIds == nil {
-			devicesCond.Wait()
+		deviceCache.Lock()
+		defer deviceCache.Unlock()
+		if deviceCache.deviceIds == nil {
+			deviceCache.cond.Wait()
 		}
-		return deviceIds
+		return deviceCache.deviceIds
 	} else {
 		return &serveCommand.Inverters
 	}
@@ -266,12 +278,12 @@ func (x *ServeCommand) realTimeMetric(variable string, inverter string) promethe
 }
 
 func isApiQuotaAvailable() bool {
-	apiCond.L.Lock()
-	defer apiCond.L.Unlock()
-	if apiUsage == nil {
-		apiCond.Wait()
+	apiCache.Lock()
+	defer apiCache.Unlock()
+	if apiCache.apiUsage == nil {
+		apiCache.cond.Wait()
 	}
-	return apiUsage.Remaining > 0
+	return apiCache.apiUsage.Remaining > 0
 }
 
 func (x *ServeCommand) verbose(format string, v ...any) {

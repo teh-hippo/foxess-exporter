@@ -26,17 +26,16 @@ type ApiCache struct {
 }
 
 type ServeCommand struct {
-	Port                int             `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
-	Inverters           map[string]bool `short:"i" long:"inverter" description:"Inverter serial numbers" env:"INVERTERS" env-delim:","`
-	Variables           []string        `short:"V" long:"variable" description:"Variables to retrieve" env:"VARIABLES" env-delim:","`
-	RealTimeIntervalSec int64           `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data (in seconds)." env:"REAL_TIME_INTERVAL" default:"180" required:"true"`
-	StatusIntervalSec   int64           `short:"S" long:"status-interval" description:"Frequency of updating the status of devices (in seconds)." env:"STATUS_INTERVAL" default:"900" required:"true"`
-	Verbose             bool            `short:"v" long:"verbose" description:"Enable verbose logging." env:"VERBOSE"`
-	DiscardStale        bool            `short:"d" long:"discard-stale" description:"Discard stale data." env:"DISCARD_STALE"`
+	Port             int             `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
+	Inverters        map[string]bool `short:"i" long:"inverter" description:"Inverter serial numbers" env:"INVERTERS" env-delim:","`
+	Variables        []string        `short:"V" long:"variable" description:"Variables to retrieve" env:"VARIABLES" env-delim:","`
+	RealTimeInterval time.Duration   `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data." env:"REAL_TIME_INTERVAL" default:"3m" required:"true"`
+	StatusInterval   time.Duration   `short:"S" long:"status-interval" description:"Frequency of updating the status of devices." env:"STATUS_INTERVAL" default:"15m" required:"true"`
+	Verbose          bool            `short:"v" long:"verbose" description:"Enable verbose logging." env:"VERBOSE"`
 }
 
 type Metrics struct {
-	variable        *prometheus.GaugeVec
+	realtime        *prometheus.GaugeVec
 	status          *prometheus.GaugeVec
 	lastUpdatedTime map[string]time.Time
 	registry        *prometheus.Registry
@@ -57,25 +56,28 @@ func init() {
 		Name: "foxess_device_status",
 		Help: "Status of the inverter.",
 	}, []string{"inverter"})
-	metrics.variable = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metrics.realtime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "foxess_realtime_data",
 		Help: "Data from the FoxESS platform.",
 	}, []string{"inverter", "variable"})
 	metrics.lastUpdatedTime = make(map[string]time.Time)
 	metrics.registry = prometheus.NewRegistry()
 	metrics.registry.MustRegister(metrics.status)
-	metrics.registry.MustRegister(metrics.variable)
+	metrics.registry.MustRegister(metrics.realtime)
 }
 
 func (x *ServeCommand) validateIntervals() error {
-	x.RealTimeIntervalSec = util.Clamp(x.RealTimeIntervalSec, 60)
-	x.StatusIntervalSec = util.Clamp(x.StatusIntervalSec, 60)
+	const oneDay time.Duration = 24 * time.Hour
+	const oneMinute = time.Minute
+	x.RealTimeInterval = util.Clamp(x.RealTimeInterval, oneMinute, oneDay)
+	x.StatusInterval = util.Clamp(x.StatusInterval, oneMinute, oneDay)
 
-	const dayInSeconds float64 = 24 * 60 * 60
-	available := float64(1440)
-	available -= dayInSeconds / float64(x.RealTimeIntervalSec)
-	available -= dayInSeconds / float64(x.StatusIntervalSec)
-	if available < 0 {
+	apiCallsPerDay := float64(oneDay.Minutes())
+	realTimeCalls := oneDay / x.RealTimeInterval
+	apiCallsPerDay -= float64(realTimeCalls)
+	statusCalls := oneDay / x.StatusInterval
+	apiCallsPerDay -= float64(statusCalls)
+	if apiCallsPerDay < 0 {
 		return errors.New("current intervals would result in API usage exceeding the maximum daily allowance")
 	}
 	return nil
@@ -162,7 +164,7 @@ func (x *ServeCommand) startDeviceStatusMetric() {
 			} else {
 				x.verbose("No quota available to update device status")
 			}
-			time.Sleep(time.Duration(x.StatusIntervalSec) * time.Second)
+			time.Sleep(x.StatusInterval)
 		}
 	}()
 }
@@ -178,7 +180,7 @@ func (x *ServeCommand) startRealTimeMetrics() {
 			} else {
 				x.verbose("No quota available to update real-time metrics")
 			}
-			time.Sleep(time.Duration(x.RealTimeIntervalSec) * time.Second)
+			time.Sleep(time.Duration(x.RealTimeInterval))
 		}
 	}()
 }
@@ -209,16 +211,13 @@ func (x *Metrics) updateMetrics() error {
 	for _, result := range data {
 		if x.lastUpdatedTime[result.DeviceSN].Equal(result.Time.Time) {
 			serveCommand.verbose("No update for %s.", result.DeviceSN)
-			if serveCommand.DiscardStale {
-				metrics.status.DeleteLabelValues(result.DeviceSN)
-			}
 			continue
 		}
-		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)
+		log.Printf("Updating %d metric%s for %s, timestamp:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)
 		x.lastUpdatedTime[result.DeviceSN] = result.Time.Time
 		for _, variable := range result.Variables {
 			serveCommand.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
-			x.variable.WithLabelValues(result.DeviceSN, variable.Variable).Set(variable.Value.Number)
+			x.realtime.WithLabelValues(result.DeviceSN, variable.Variable).Set(variable.Value.Number)
 		}
 	}
 	return nil

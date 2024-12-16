@@ -2,42 +2,48 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestApiUsageWontExceedAllowance(t *testing.T) {
+	const longDelay time.Duration = 9999 * time.Minute
+
 	// Defaults
-	serveCommand.RealTimeIntervalSec = 120
-	serveCommand.StatusIntervalSec = 900
+	serveCommand.RealTimeInterval = 3 * time.Minute
+	serveCommand.StatusInterval = 15 * time.Minute
 	actual := serveCommand.validateIntervals()
 	assert.Nil(t, actual)
 
 	// RealTimeIntervalSec too low
-	serveCommand.RealTimeIntervalSec = 60
-	serveCommand.StatusIntervalSec = 9999
+	serveCommand.RealTimeInterval = time.Minute
+	serveCommand.StatusInterval = longDelay
 	actual = serveCommand.validateIntervals()
 	assert.NotNil(t, actual)
 
 	// RealTimeIntervalSec too low
-	serveCommand.RealTimeIntervalSec = 999999
-	serveCommand.StatusIntervalSec = 60
+	serveCommand.RealTimeInterval = longDelay
+	serveCommand.StatusInterval = time.Minute
 	actual = serveCommand.validateIntervals()
 	assert.NotNil(t, actual)
 }
 
 func TestUpdateIntervalsAreClamped(t *testing.T) {
-	// RealTimeIntervalSec
-	serveCommand.RealTimeIntervalSec = 59
-	serveCommand.StatusIntervalSec = 61
-	assert.NotNil(t, serveCommand.validateIntervals())
-	assert.Equal(t, int64(60), serveCommand.RealTimeIntervalSec)
-	assert.Equal(t, int64(61), serveCommand.StatusIntervalSec)
+	const overOneMinute time.Duration = 61 * time.Second
+	const underOneMinute time.Duration = 59 * time.Second
 
-	// StatusIntervalSec
-	serveCommand.RealTimeIntervalSec = 61
-	serveCommand.StatusIntervalSec = 59
+	// RealTimeInterval
+	serveCommand.RealTimeInterval = underOneMinute
+	serveCommand.StatusInterval = overOneMinute
 	assert.NotNil(t, serveCommand.validateIntervals())
-	assert.Equal(t, int64(61), serveCommand.RealTimeIntervalSec)
-	assert.Equal(t, int64(60), serveCommand.StatusIntervalSec)
+	assert.Equal(t, time.Minute, serveCommand.RealTimeInterval)
+	assert.Equal(t, overOneMinute, serveCommand.StatusInterval)
+
+	// StatusInterval
+	serveCommand.RealTimeInterval = overOneMinute
+	serveCommand.StatusInterval = underOneMinute
+	assert.NotNil(t, serveCommand.validateIntervals())
+	assert.Equal(t, overOneMinute, serveCommand.RealTimeInterval)
+	assert.Equal(t, time.Minute, serveCommand.StatusInterval)
 }

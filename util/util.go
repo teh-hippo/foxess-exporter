@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 )
 
 func ToReader(v interface{}) (io.Reader, error) {
@@ -47,9 +48,11 @@ func JsonToStdOut(v any) error {
 	return enc.Encode(v)
 }
 
-func Clamp(value int64, min int64) int64 {
+func Clamp(value time.Duration, min time.Duration, max time.Duration) time.Duration {
 	if value < min {
 		return min
+	} else if value > max {
+		return max
 	}
 	return value
 }

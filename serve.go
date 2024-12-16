@@ -75,7 +75,6 @@ func (x *ServeCommand) updateApiQuota() {
 		apiCache.Update(a)
 		log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
 	}
-	time.Sleep(10 * time.Minute)
 }
 
 func (x *ServeCommand) updateDeviceStatus() {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -13,15 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
-
-type DiscoveryTarget struct {
-	Targets []string          `json:"targets"`
-	Labels  map[string]string `json:"labels"`
-}
-
-type DiscoveryResponse struct {
-	Items []DiscoveryTarget
-}
 
 type DeviceCache struct {
 	sync.Mutex
@@ -45,8 +35,8 @@ type ServeCommand struct {
 }
 
 type Metrics struct {
-	sync.Mutex
-	gauges          map[string]prometheus.Gauge
+	variable        *prometheus.GaugeVec
+	status          *prometheus.GaugeVec
 	lastUpdatedTime map[string]time.Time
 	registry        *prometheus.Registry
 }
@@ -62,9 +52,18 @@ func init() {
 	}
 	deviceCache.cond = sync.NewCond(&deviceCache)
 	apiCache.cond = sync.NewCond(&apiCache)
-	metrics.gauges = make(map[string]prometheus.Gauge)
+	metrics.status = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "foxess_device_status",
+		Help: "Status of the inverter.",
+	}, []string{"inverter"})
+	metrics.variable = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "foxess_realtime_data",
+		Help: "Data from the FoxESS platform.",
+	}, []string{"inverter", "variable"})
 	metrics.lastUpdatedTime = make(map[string]time.Time)
 	metrics.registry = prometheus.NewRegistry()
+	metrics.registry.MustRegister(metrics.status)
+	metrics.registry.MustRegister(metrics.variable)
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -98,7 +97,7 @@ func (x *DeviceCache) updater(filtered map[string]bool) error {
 			}
 			if !hasFilter || filtered[device.DeviceSerialNumber] {
 				log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
-				metrics.status(device.DeviceSerialNumber).Set(float64(device.Status))
+				metrics.status.WithLabelValues(device.DeviceSerialNumber).Set(float64(device.Status))
 			}
 		}
 
@@ -128,7 +127,6 @@ func (x *ServeCommand) Execute(args []string) error {
 	x.startDeviceStatusMetric()
 	x.startRealTimeMetrics()
 
-	http.Handle("/discovery", http.HandlerFunc(discovery))
 	http.Handle("/metrics", promhttp.HandlerFor(metrics.registry, promhttp.HandlerOpts{}))
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
 
@@ -216,74 +214,10 @@ func (x *Metrics) updateMetrics() error {
 		x.lastUpdatedTime[result.DeviceSN] = result.Time.Time
 		for _, variable := range result.Variables {
 			serveCommand.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
-			x.realTime(variable.Variable, result.DeviceSN).Set(variable.Value.Number)
+			x.variable.WithLabelValues(result.DeviceSN, variable.Variable).Set(variable.Value.Number)
 		}
 	}
 	return nil
-}
-
-func discovery(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Discovery request received.")
-	deviceCache.Lock()
-	defer deviceCache.Unlock()
-	if deviceCache.deviceIds == nil {
-		deviceCache.cond.Wait()
-	}
-	response := &DiscoveryResponse{}
-	for _, deviceId := range deviceCache.deviceIds {
-		response.Items = append(response.Items,
-			DiscoveryTarget{
-				Targets: []string{r.Host},
-				Labels: map[string]string{"deviceSn": deviceId,
-					"job": "foxess_solar"}})
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	enc := json.NewEncoder(w)
-	if err := enc.Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func (x *Metrics) status(inverter string) prometheus.Gauge {
-	x.Lock()
-	defer x.Unlock()
-	metric := x.gauges[inverter]
-	if metric != nil {
-		return metric
-	}
-
-	metric = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "foxess_device_status",
-		Help: "Status of the inverter.",
-		ConstLabels: prometheus.Labels{
-			"inverter": inverter,
-		},
-	})
-	x.gauges[inverter] = metric
-	x.registry.MustRegister(metric)
-	return metric
-}
-
-func (x *Metrics) realTime(variable string, inverter string) prometheus.Gauge {
-	x.Lock()
-	defer x.Unlock()
-	metric := x.gauges[variable]
-	if metric != nil {
-		return metric
-	}
-	metric = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "foxess_realtime_data",
-		Help: "Data from the FoxESS platform.",
-		ConstLabels: prometheus.Labels{
-			"inverter": inverter,
-			"variable": variable,
-		},
-	})
-	x.gauges[variable] = metric
-	x.registry.MustRegister(metric)
-	return metric
 }
 
 func (x *ApiCache) isApiQuotaAvailable() bool {

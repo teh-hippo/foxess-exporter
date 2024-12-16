@@ -7,7 +7,7 @@ import (
 	"github.com/teh-hippo/foxess-exporter/foxess"
 )
 
-var foxessApi foxess.FoxessParams
+var foxessApi foxess.FoxessApi
 var parser = flags.NewParser(&foxessApi, flags.Default)
 
 func main() {

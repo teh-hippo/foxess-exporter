@@ -52,7 +52,7 @@ type RealTimeData struct {
 	Time     CustomTime `json:"time"`
 }
 
-func (common *FoxessParams) GetRealTimeData(inverters []string, variables []string) ([]RealTimeData, error) {
+func (api *FoxessApi) GetRealTimeData(inverters []string, variables []string) ([]RealTimeData, error) {
 	request := &RealTimeRequest{
 		SerialNumbers: inverters,
 	}
@@ -60,7 +60,7 @@ func (common *FoxessParams) GetRealTimeData(inverters []string, variables []stri
 		request.Variables = variables
 	}
 	response := &RealTimeResponse{}
-	if err := common.NewRequest("POST", "/op/v1/device/real/query", request, response); err != nil {
+	if err := api.NewRequest("POST", "/op/v1/device/real/query", request, response); err != nil {
 		return nil, err
 	} else if err = IsError(response.ErrorNumber, response.Message); err != nil {
 		return nil, err

@@ -1,7 +1,6 @@
 package serve
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -12,34 +11,30 @@ import (
 
 type Metrics struct {
 	realtime        *prometheus.GaugeVec
-	Status          *prometheus.GaugeVec
+	status          *prometheus.GaugeVec
 	lastUpdatedTime map[string]time.Time
 	Registry        *prometheus.Registry
 }
 
 func NewMetrics() *Metrics {
-	metrics := &Metrics{}
-	metrics.Status = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "foxess_device_status",
-		Help: "Status of the inverter.",
-	}, []string{"inverter"})
-	metrics.realtime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "foxess_realtime_data",
-		Help: "Data from the FoxESS platform.",
-	}, []string{"inverter", "variable"})
-	metrics.lastUpdatedTime = make(map[string]time.Time)
-	metrics.Registry = prometheus.NewRegistry()
-	metrics.Registry.MustRegister(metrics.Status)
+	metrics := &Metrics{
+		status: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "foxess_device_status",
+			Help: "Status of the inverter.",
+		}, []string{"inverter"}),
+		realtime: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "foxess_realtime_data",
+			Help: "Data from the FoxESS platform.",
+		}, []string{"inverter", "variable"}),
+		lastUpdatedTime: make(map[string]time.Time),
+		Registry:        prometheus.NewRegistry(),
+	}
+	metrics.Registry.MustRegister(metrics.status)
 	metrics.Registry.MustRegister(metrics.realtime)
 	return metrics
 }
 
-func (x *Metrics) Updater(foxessApi *foxess.FoxessParams, deviceIds []string, variables []string) error {
-	data, err := foxessApi.GetRealTimeData(deviceIds, variables)
-	if err != nil {
-		return fmt.Errorf("Unable to retrieve latest real-time data: %w", err)
-	}
-
+func (x *Metrics) UpdateRealTime(data []foxess.RealTimeData) {
 	for _, result := range data {
 		if x.lastUpdatedTime[result.DeviceSN].Equal(result.Time.Time) {
 			continue
@@ -50,5 +45,12 @@ func (x *Metrics) Updater(foxessApi *foxess.FoxessParams, deviceIds []string, va
 			x.realtime.WithLabelValues(result.DeviceSN, variable.Variable).Set(variable.Value.Number)
 		}
 	}
-	return nil
+}
+
+func (x *Metrics) UpdateStatus(devices []foxess.Device, include func(inverter string) bool) {
+	for _, device := range devices {
+		if include(device.DeviceSerialNumber) {
+			x.status.WithLabelValues(device.DeviceSerialNumber).Set(float64(device.Status))
+		}
+	}
 }

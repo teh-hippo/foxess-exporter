@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -16,8 +15,8 @@ import (
 )
 
 type DiscoveryTarget struct {
-	Targets []string `json:"targets"`
-	Labels  []Device `json:"labels"`
+	Targets []string          `json:"targets"`
+	Labels  map[string]string `json:"labels"`
 }
 
 type DiscoveryResponse struct {
@@ -26,9 +25,8 @@ type DiscoveryResponse struct {
 
 type DeviceCache struct {
 	sync.Mutex
-	deviceList *[]Device
-	deviceIds  *[]string
-	cond       *sync.Cond
+	deviceIds []string
+	cond      *sync.Cond
 }
 
 type ApiCache struct {
@@ -38,22 +36,25 @@ type ApiCache struct {
 }
 
 type ServeCommand struct {
-	Port                int      `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
-	Inverters           []string `short:"i" long:"inverter" description:"Inverter serial numbers" required:"true" env:"INVERTERS" env-delim:","`
-	Variables           []string `short:"V" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
-	RealTimeIntervalSec int64    `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data (in seconds)." env:"REAL_TIME_INTERVAL" default:"180" required:"true"`
-	StatusIntervalSec   int64    `short:"S" long:"status-interval" description:"Frequency of updating the status of devices (in seconds)." env:"STATUS_INTERVAL" default:"900" required:"true"`
-	Discovery           string   `short:"d" long:"discovery" description:"Configure discovery behaviour." required:"false" choices:"off,on,only" default:"off" env:"DISCOVERY"`
-	Verbose             bool     `short:"v" long:"verbose" description:"Enable verbose logging." required:"false"`
+	Port                int             `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
+	Inverters           map[string]bool `short:"i" long:"inverter" description:"Inverter serial numbers" env:"INVERTERS" env-delim:","`
+	Variables           []string        `short:"V" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
+	RealTimeIntervalSec int64           `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data (in seconds)." env:"REAL_TIME_INTERVAL" default:"180" required:"true"`
+	StatusIntervalSec   int64           `short:"S" long:"status-interval" description:"Frequency of updating the status of devices (in seconds)." env:"STATUS_INTERVAL" default:"900" required:"true"`
+	Verbose             bool            `short:"v" long:"verbose" description:"Enable verbose logging." required:"false"`
+}
+
+type Metrics struct {
+	sync.Mutex
+	gauges          map[string]prometheus.Gauge
+	lastUpdatedTime map[string]time.Time
+	registry        *prometheus.Registry
 }
 
 var serveCommand ServeCommand
-var reg = prometheus.NewRegistry()
-var metrics = make(map[string]prometheus.Gauge)
-var last_reported_time = make(map[string]time.Time)
-var deviceCache = DeviceCache{}
-var apiCache = ApiCache{}
-var metricsLock = sync.Mutex{}
+var deviceCache DeviceCache
+var apiCache ApiCache
+var metrics Metrics
 
 func init() {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
@@ -61,6 +62,9 @@ func init() {
 	}
 	deviceCache.cond = sync.NewCond(&deviceCache)
 	apiCache.cond = sync.NewCond(&apiCache)
+	metrics.gauges = make(map[string]prometheus.Gauge)
+	metrics.lastUpdatedTime = make(map[string]time.Time)
+	metrics.registry = prometheus.NewRegistry()
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -77,109 +81,143 @@ func (x *ServeCommand) validateIntervals() error {
 	return nil
 }
 
-func (x *ServeCommand) startDeviceStatusMetric() {
+func (x *DeviceCache) updater(filtered map[string]bool) error {
+	x.Lock()
+	defer x.Unlock()
+	if devices, err := GetDeviceList(); err != nil {
+		return fmt.Errorf("Unable to update device list: %w", err)
+	} else {
+		var hasFilter = len(filtered) > 0
+		if !hasFilter {
+			x.deviceIds = make([]string, len(devices))
+		}
+
+		for i, device := range devices {
+			if !hasFilter {
+				x.deviceIds[i] = device.DeviceSerialNumber
+			}
+			if !hasFilter || filtered[device.DeviceSerialNumber] {
+				log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
+				metrics.status(device.DeviceSerialNumber).Set(float64(device.Status))
+			}
+		}
+
+		if !hasFilter {
+			x.cond.Broadcast()
+		}
+	}
+	return nil
+}
+
+func (x *DeviceCache) initalise(filtered map[string]bool) {
+	if len(filtered) == 0 {
+		return
+	}
+	x.Lock()
+	defer x.Unlock()
+	x.deviceIds = make([]string, 0, len(filtered))
+	for deviceId := range filtered {
+		x.deviceIds = append(x.deviceIds, deviceId)
+	}
+}
+
+func (x *ServeCommand) Execute(args []string) error {
+	deviceCache.initalise(serveCommand.Inverters)
+
+	x.startApiQuotaManagement()
+	x.startDeviceStatusMetric()
+	x.startRealTimeMetrics()
+
+	http.Handle("/discovery", http.HandlerFunc(discovery))
+	http.Handle("/metrics", promhttp.HandlerFor(metrics.registry, promhttp.HandlerOpts{}))
+	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
+
+	server := &http.Server{Addr: ":" + fmt.Sprint(x.Port), ReadHeaderTimeout: 3 * time.Second}
+	return server.ListenAndServe()
+}
+
+func (x *ServeCommand) startApiQuotaManagement() {
+	x.verbose("Starting API quota management")
 	go func() {
 		for {
-			if isApiQuotaAvailable() {
+			x.verbose("Updating API usage")
+			if a, err := apiCache.updater(); err != nil {
+				fmt.Println(err)
+			} else {
+				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
+			}
+			time.Sleep(10 * time.Minute)
+		}
+	}()
+}
+
+func (x *ServeCommand) startDeviceStatusMetric() {
+	x.verbose("Starting device status metric")
+	go func() {
+		for {
+			if apiCache.isApiQuotaAvailable() {
 				x.verbose("Retrieving device status")
-				if devices, err := GetDeviceList(); err != nil {
+				if err := deviceCache.updater(x.Inverters); err != nil {
 					fmt.Println(err)
-				} else {
-					for _, device := range devices {
-						log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
-						x.statusMetric(device.DeviceSerialNumber).Set(float64(device.Status))
-					}
 				}
+			} else {
+				x.verbose("No quota available to update device status")
 			}
 			time.Sleep(time.Duration(x.StatusIntervalSec) * time.Second)
 		}
 	}()
 }
 
-func (x *ServeCommand) Execute(args []string) error {
-	x.startApiQuotaManagement()
-
-	if x.Discovery != "only" {
-		http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-		x.startRealTimeMetrics()
-		x.startDeviceStatusMetric()
-	}
-	if x.Discovery != "off" {
-		startDiscovery()
-		http.Handle("/discovery", http.HandlerFunc(discovery))
-	}
-	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
-	server := &http.Server{Addr: ":" + fmt.Sprint(x.Port), ReadHeaderTimeout: 3 * time.Second}
-	return server.ListenAndServe()
-}
-
-func (x *ServeCommand) startApiQuotaManagement() {
-	go func() {
-		for {
-			a, err := updateApi()
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
-			time.Sleep(10 * time.Minute)
-		}
-	}()
-}
-
-func updateApi() (*ApiUsage, error) {
-	apiCache.Lock()
-	defer apiCache.Unlock()
-	a, err := GetApiUsage()
-	if err != nil {
-		return nil, fmt.Errorf("failed to update API usage: %w", err)
-	}
-	apiCache.apiUsage = a
-	apiCache.cond.Broadcast()
-	return a, nil
-}
-
 func (x *ServeCommand) startRealTimeMetrics() {
 	go func() {
 		for {
-			if isApiQuotaAvailable() {
-				x.verbose("Retrieving device real-time data")
-				if data, err := GetRealTimeData(*inverters(), serveCommand.Variables); err != nil {
+			if apiCache.isApiQuotaAvailable() {
+				x.verbose("Retrieving latest real-time data")
+				if err := metrics.updateMetrics(); err != nil {
 					fmt.Println(err)
-				} else {
-					x.handleRealTimeData(data)
 				}
+			} else {
+				x.verbose("No quota available to update real-time metrics")
 			}
 			time.Sleep(time.Duration(x.RealTimeIntervalSec) * time.Second)
 		}
 	}()
 }
 
-func startDiscovery() {
-	go func() {
-		for {
-			log.Print("Updating discovery data")
-			if err := updateDevices(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-			}
-			time.Sleep(24 * time.Hour)
-		}
-	}()
+func (x *ApiCache) updater() (*ApiUsage, error) {
+	x.Lock()
+	defer x.Unlock()
+	a, err := GetApiUsage()
+	if err != nil {
+		return nil, fmt.Errorf("failed to update API usage: %w", err)
+	}
+	x.apiUsage = a
+	x.cond.Broadcast()
+	return a, nil
 }
 
-func updateDevices() error {
+func (x *Metrics) updateMetrics() error {
 	deviceCache.Lock()
 	defer deviceCache.Unlock()
-	if devices, err := GetDeviceList(); err != nil {
-		return fmt.Errorf("failed to retrieve device list: %w", err)
-	} else {
-		deviceSerialNumbers := make([]string, len(devices))
-		for i, device := range devices {
-			deviceSerialNumbers[i] = device.DeviceSerialNumber
+	if deviceCache.deviceIds == nil {
+		deviceCache.cond.Wait()
+	}
+	data, err := GetRealTimeData(deviceCache.deviceIds, serveCommand.Variables)
+	if err != nil {
+		return fmt.Errorf("Unable to retrieve latest real-time data: %w", err)
+	}
+
+	for _, result := range data {
+		if x.lastUpdatedTime[result.DeviceSN].Equal(result.Time.Time) {
+			serveCommand.verbose("No update for %s.", result.DeviceSN)
+			continue
 		}
-		deviceCache.deviceList = &devices
-		deviceCache.deviceIds = &deviceSerialNumbers
-		deviceCache.cond.Broadcast()
+		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)
+		x.lastUpdatedTime[result.DeviceSN] = result.Time.Time
+		for _, variable := range result.Variables {
+			serveCommand.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
+			x.realTime(variable.Variable, result.DeviceSN).Set(variable.Value.Number)
+		}
 	}
 	return nil
 }
@@ -188,15 +226,16 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Discovery request received.")
 	deviceCache.Lock()
 	defer deviceCache.Unlock()
-	if deviceCache.deviceList == nil {
+	if deviceCache.deviceIds == nil {
 		deviceCache.cond.Wait()
 	}
 	response := &DiscoveryResponse{}
-	for _, device := range *deviceCache.deviceList {
+	for _, deviceId := range deviceCache.deviceIds {
 		response.Items = append(response.Items,
 			DiscoveryTarget{
-				Targets: []string{device.DeviceSerialNumber},
-				Labels:  []Device{device}})
+				Targets: []string{r.Host},
+				Labels: map[string]string{"deviceSn": deviceId,
+					"job": "foxess_solar"}})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -207,28 +246,14 @@ func discovery(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func inverters() *[]string {
-	if len(serveCommand.Inverters) == 0 {
-		deviceCache.Lock()
-		defer deviceCache.Unlock()
-		if deviceCache.deviceIds == nil {
-			deviceCache.cond.Wait()
-		}
-		return deviceCache.deviceIds
-	} else {
-		return &serveCommand.Inverters
-	}
-}
-
-func (x *ServeCommand) statusMetric(inverter string) prometheus.Gauge {
-	metricsLock.Lock()
-	defer metricsLock.Unlock()
-	metric := metrics[inverter]
+func (x *Metrics) status(inverter string) prometheus.Gauge {
+	x.Lock()
+	defer x.Unlock()
+	metric := x.gauges[inverter]
 	if metric != nil {
 		return metric
 	}
 
-	x.verbose("Creating 'status' gauge for '%s'.\n", inverter)
 	metric = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "foxess_device_status",
 		Help: "Status of the inverter.",
@@ -236,34 +261,18 @@ func (x *ServeCommand) statusMetric(inverter string) prometheus.Gauge {
 			"inverter": inverter,
 		},
 	})
-	metrics[inverter] = metric
-	reg.MustRegister(metric)
+	x.gauges[inverter] = metric
+	x.registry.MustRegister(metric)
 	return metric
 }
 
-func (x *ServeCommand) handleRealTimeData(data []RealTimeData) {
-	for _, result := range data {
-		if last_reported_time[result.DeviceSN].Equal(result.Time.Time) {
-			x.verbose("No update for %s.", result.DeviceSN)
-			continue
-		}
-		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)
-		last_reported_time[result.DeviceSN] = result.Time.Time
-		for _, variable := range result.Variables {
-			x.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
-			x.realTimeMetric(variable.Variable, result.DeviceSN).Set(variable.Value.Number)
-		}
-	}
-}
-
-func (x *ServeCommand) realTimeMetric(variable string, inverter string) prometheus.Gauge {
-	metricsLock.Lock()
-	defer metricsLock.Unlock()
-	metric := metrics[variable]
+func (x *Metrics) realTime(variable string, inverter string) prometheus.Gauge {
+	x.Lock()
+	defer x.Unlock()
+	metric := x.gauges[variable]
 	if metric != nil {
 		return metric
 	}
-	x.verbose("Creating '%s' gauge for '%s'.\n", variable, inverter)
 	metric = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "foxess_realtime_data",
 		Help: "Data from the FoxESS platform.",
@@ -272,18 +281,18 @@ func (x *ServeCommand) realTimeMetric(variable string, inverter string) promethe
 			"variable": variable,
 		},
 	})
-	metrics[variable] = metric
-	reg.MustRegister(metric)
+	x.gauges[variable] = metric
+	x.registry.MustRegister(metric)
 	return metric
 }
 
-func isApiQuotaAvailable() bool {
-	apiCache.Lock()
-	defer apiCache.Unlock()
-	if apiCache.apiUsage == nil {
-		apiCache.cond.Wait()
+func (x *ApiCache) isApiQuotaAvailable() bool {
+	x.Lock()
+	defer x.Unlock()
+	if x.apiUsage == nil {
+		x.cond.Wait()
 	}
-	return apiCache.apiUsage.Remaining > 0
+	return x.apiUsage.Remaining > 0
 }
 
 func (x *ServeCommand) verbose(format string, v ...any) {

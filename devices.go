@@ -24,7 +24,7 @@ const (
 	DEVICES_STATUS_OFFLINE
 )
 
-const PageSize = 100
+const PageSize = 1000
 
 type Device struct {
 	DeviceSerialNumber string `json:"deviceSN"`

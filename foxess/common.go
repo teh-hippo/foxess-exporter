@@ -31,7 +31,7 @@ type ParamHolder interface {
 	apiKey() string
 }
 
-func IsError(errorNumber int, message string) error {
+func isError(errorNumber int, message string) error {
 	if errorNumber != 0 {
 		return fmt.Errorf("error response from foxess: %d - %s", errorNumber, message)
 	}

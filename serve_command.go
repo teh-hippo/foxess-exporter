@@ -22,17 +22,17 @@ type ServeCommand struct {
 }
 
 var serveCommand ServeCommand
-var deviceCache *serve.DeviceCache
-var apiCache *serve.ApiQuota
-var metrics *serve.Metrics
+var deviceCache serve.DeviceCache
+var apiCache serve.ApiQuota
+var metrics serve.Metrics
 
 func init() {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
 		panic(err)
 	}
-	deviceCache = serve.NewDeviceCache()
-	apiCache = serve.NewApiCache()
-	metrics = serve.NewMetrics()
+	deviceCache = *serve.NewDeviceCache()
+	apiCache = *serve.NewApiCache()
+	metrics = *serve.NewMetrics()
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -103,7 +103,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 
 func (x *ServeCommand) updateRealTimeMetrics() {
 	x.verbose("Retrieving latest real-time data")
-	data, err := foxessApi.GetRealTimeData(*deviceCache.Get(), serveCommand.Variables)
+	data, err := foxessApi.GetRealTimeData(deviceCache.Get(), serveCommand.Variables)
 	if err != nil {
 		fmt.Printf("Unable to retrieve latest real-time data: %v", err)
 	}

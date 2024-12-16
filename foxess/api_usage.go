@@ -26,7 +26,7 @@ func (api *FoxessApi) GetApiUsage() (*ApiUsage, error) {
 		return nil, fmt.Errorf("failed to get latest api usage: %w", err)
 	}
 
-	if err = IsError(response.ErrorNumber, ""); err != nil {
+	if err = isError(response.ErrorNumber, ""); err != nil {
 		return nil, err
 	}
 

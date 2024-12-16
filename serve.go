@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/teh-hippo/foxess-exporter/serve"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
@@ -34,17 +34,10 @@ type ServeCommand struct {
 	Verbose          bool            `short:"v" long:"verbose" description:"Enable verbose logging." env:"VERBOSE"`
 }
 
-type Metrics struct {
-	realtime        *prometheus.GaugeVec
-	status          *prometheus.GaugeVec
-	lastUpdatedTime map[string]time.Time
-	registry        *prometheus.Registry
-}
-
 var serveCommand ServeCommand
 var deviceCache DeviceCache
 var apiCache ApiCache
-var metrics Metrics
+var metrics *serve.Metrics
 
 func init() {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
@@ -52,18 +45,7 @@ func init() {
 	}
 	deviceCache.cond = sync.NewCond(&deviceCache)
 	apiCache.cond = sync.NewCond(&apiCache)
-	metrics.status = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "foxess_device_status",
-		Help: "Status of the inverter.",
-	}, []string{"inverter"})
-	metrics.realtime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "foxess_realtime_data",
-		Help: "Data from the FoxESS platform.",
-	}, []string{"inverter", "variable"})
-	metrics.lastUpdatedTime = make(map[string]time.Time)
-	metrics.registry = prometheus.NewRegistry()
-	metrics.registry.MustRegister(metrics.status)
-	metrics.registry.MustRegister(metrics.realtime)
+	metrics = serve.NewMetrics()
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -100,7 +82,7 @@ func (x *DeviceCache) updater(filtered map[string]bool) error {
 			}
 			if !hasFilter || filtered[device.DeviceSerialNumber] {
 				log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
-				metrics.status.WithLabelValues(device.DeviceSerialNumber).Set(float64(device.Status))
+				metrics.Status.WithLabelValues(device.DeviceSerialNumber).Set(float64(device.Status))
 			}
 		}
 
@@ -130,7 +112,7 @@ func (x *ServeCommand) Execute(args []string) error {
 	x.startDeviceStatusMetric()
 	x.startRealTimeMetrics()
 
-	http.Handle("/metrics", promhttp.HandlerFor(metrics.registry, promhttp.HandlerOpts{}))
+	http.Handle("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
 
 	server := &http.Server{Addr: ":" + fmt.Sprint(x.Port), ReadHeaderTimeout: 3 * time.Second}
@@ -174,7 +156,7 @@ func (x *ServeCommand) startRealTimeMetrics() {
 		for {
 			if apiCache.isApiQuotaAvailable() {
 				x.verbose("Retrieving latest real-time data")
-				if err := metrics.updateMetrics(); err != nil {
+				if err := updateMetrics(); err != nil {
 					fmt.Println(err)
 				}
 			} else {
@@ -183,6 +165,15 @@ func (x *ServeCommand) startRealTimeMetrics() {
 			time.Sleep(time.Duration(x.RealTimeInterval))
 		}
 	}()
+}
+
+func updateMetrics() error {
+	deviceCache.Lock()
+	defer deviceCache.Unlock()
+	if deviceCache.deviceIds == nil {
+		deviceCache.cond.Wait()
+	}
+	return metrics.Updater(&foxessApi, deviceCache.deviceIds, serveCommand.Variables)
 }
 
 func (x *ApiCache) updater() (*ApiUsage, error) {
@@ -195,32 +186,6 @@ func (x *ApiCache) updater() (*ApiUsage, error) {
 	x.apiUsage = a
 	x.cond.Broadcast()
 	return a, nil
-}
-
-func (x *Metrics) updateMetrics() error {
-	deviceCache.Lock()
-	defer deviceCache.Unlock()
-	if deviceCache.deviceIds == nil {
-		deviceCache.cond.Wait()
-	}
-	data, err := GetRealTimeData(deviceCache.deviceIds, serveCommand.Variables)
-	if err != nil {
-		return fmt.Errorf("Unable to retrieve latest real-time data: %w", err)
-	}
-
-	for _, result := range data {
-		if x.lastUpdatedTime[result.DeviceSN].Equal(result.Time.Time) {
-			serveCommand.verbose("No update for %s.", result.DeviceSN)
-			continue
-		}
-		log.Printf("Updating %d metric%s for %s, timestamp:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)
-		x.lastUpdatedTime[result.DeviceSN] = result.Time.Time
-		for _, variable := range result.Variables {
-			serveCommand.verbose("Setting '%s' for '%s' to: %f", variable.Variable, result.DeviceSN, variable.Value.Number)
-			x.realtime.WithLabelValues(result.DeviceSN, variable.Variable).Set(variable.Value.Number)
-		}
-	}
-	return nil
 }
 
 func (x *ApiCache) isApiQuotaAvailable() bool {

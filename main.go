@@ -4,16 +4,11 @@ import (
 	"os"
 
 	"github.com/jessevdk/go-flags"
+	"github.com/teh-hippo/foxess-exporter/foxess"
 )
 
-var options Options
-
-type Options struct {
-	ApiKey string `short:"k" long:"api-key" description:"FoxESS API Key" required:"true" env:"API_KEY"`
-	Debug  bool   `short:"d" long:"debug" description:"Enable debug output"`
-}
-
-var parser = flags.NewParser(&options, flags.Default)
+var foxessApi foxess.FoxessParams
+var parser = flags.NewParser(&foxessApi, flags.Default)
 
 func main() {
 	if _, err := parser.Parse(); err != nil {

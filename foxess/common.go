@@ -12,7 +12,7 @@ func IsError(errorNumber int, message string) error {
 	return nil
 }
 
-type FoxessParams struct {
+type FoxessApi struct {
 	ApiKey string `short:"k" long:"api-key" description:"FoxESS API Key" required:"true" env:"API_KEY"`
 	Debug  bool   `short:"d" long:"debug" description:"Enable debug output"`
 }

@@ -23,10 +23,10 @@ func CalculateSignature(path string, apiKey string, timestamp int64) string {
 	return fmt.Sprintf("%x", md5.Sum(term))
 }
 
-func (common *FoxessParams) NewRequest(operation string, path string, params interface{}, result interface{}) error {
+func (api *FoxessApi) NewRequest(operation string, path string, params interface{}, result interface{}) error {
 	url := BaseUrl + path
 	timestamp := time.Now().UnixMilli()
-	signature := CalculateSignature(path, common.ApiKey, timestamp)
+	signature := CalculateSignature(path, api.ApiKey, timestamp)
 	operationParts := strings.Split(operation, "/")
 	operationName := operationParts[int(math.Max(0, float64(len(operationParts)-1)))]
 	var body io.Reader
@@ -44,7 +44,7 @@ func (common *FoxessParams) NewRequest(operation string, path string, params int
 		return fmt.Errorf("failed to create %s request to %s: %w", operation, url, err)
 	}
 
-	request.Header.Set("token", common.ApiKey)
+	request.Header.Set("token", api.ApiKey)
 	request.Header.Set("signature", signature)
 	request.Header.Set("timestamp", fmt.Sprint(timestamp))
 	request.Header.Set("lang", "en")
@@ -59,7 +59,7 @@ func (common *FoxessParams) NewRequest(operation string, path string, params int
 		return fmt.Errorf("failed to read the body of %s request to %s: %w", operation, url, err)
 	}
 
-	if common.Debug {
+	if api.Debug {
 		err = util.ToFile(fmt.Sprintf("debug-%s-%d.json", operationName, timestamp), data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
@@ -70,7 +70,7 @@ func (common *FoxessParams) NewRequest(operation string, path string, params int
 		return fmt.Errorf("failed to unmarshal response from %s request to %s: %w", operation, url, err)
 	}
 
-	if common.Debug {
+	if api.Debug {
 		if err = util.ToFile(fmt.Sprintf("debug-%s-%d-marshalled.json", operationName, timestamp), data); err != nil {
 			// Output the error, but continue with the result.
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)

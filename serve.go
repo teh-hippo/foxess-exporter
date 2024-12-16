@@ -13,12 +13,6 @@ import (
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
-type DeviceCache struct {
-	sync.Mutex
-	deviceIds []string
-	cond      *sync.Cond
-}
-
 type ApiCache struct {
 	sync.Mutex
 	apiUsage *ApiUsage
@@ -35,7 +29,7 @@ type ServeCommand struct {
 }
 
 var serveCommand ServeCommand
-var deviceCache DeviceCache
+var deviceCache *serve.DeviceCache
 var apiCache ApiCache
 var metrics *serve.Metrics
 
@@ -43,7 +37,7 @@ func init() {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
 		panic(err)
 	}
-	deviceCache.cond = sync.NewCond(&deviceCache)
+	deviceCache = serve.NewDeviceCache()
 	apiCache.cond = sync.NewCond(&apiCache)
 	metrics = serve.NewMetrics()
 }
@@ -65,48 +59,8 @@ func (x *ServeCommand) validateIntervals() error {
 	return nil
 }
 
-func (x *DeviceCache) updater(filtered map[string]bool) error {
-	x.Lock()
-	defer x.Unlock()
-	if devices, err := GetDeviceList(); err != nil {
-		return fmt.Errorf("Unable to update device list: %w", err)
-	} else {
-		var hasFilter = len(filtered) > 0
-		if !hasFilter {
-			x.deviceIds = make([]string, len(devices))
-		}
-
-		for i, device := range devices {
-			if !hasFilter {
-				x.deviceIds[i] = device.DeviceSerialNumber
-			}
-			if !hasFilter || filtered[device.DeviceSerialNumber] {
-				log.Printf("Setting status of %s to: %d (%s)", device.DeviceSerialNumber, device.Status, device.status())
-				metrics.Status.WithLabelValues(device.DeviceSerialNumber).Set(float64(device.Status))
-			}
-		}
-
-		if !hasFilter {
-			x.cond.Broadcast()
-		}
-	}
-	return nil
-}
-
-func (x *DeviceCache) initalise(filtered map[string]bool) {
-	if len(filtered) == 0 {
-		return
-	}
-	x.Lock()
-	defer x.Unlock()
-	x.deviceIds = make([]string, 0, len(filtered))
-	for deviceId := range filtered {
-		x.deviceIds = append(x.deviceIds, deviceId)
-	}
-}
-
 func (x *ServeCommand) Execute(args []string) error {
-	deviceCache.initalise(serveCommand.Inverters)
+	deviceCache.Initalise(serveCommand.Inverters)
 
 	x.startApiQuotaManagement()
 	x.startDeviceStatusMetric()
@@ -140,8 +94,15 @@ func (x *ServeCommand) startDeviceStatusMetric() {
 		for {
 			if apiCache.isApiQuotaAvailable() {
 				x.verbose("Retrieving device status")
-				if err := deviceCache.updater(x.Inverters); err != nil {
-					fmt.Println(err)
+				devices, err := foxessApi.GetDeviceList()
+				if err != nil {
+					fmt.Printf("Unable to update device list: %v", err)
+				} else {
+					metrics.UpdateStatus(devices, include)
+					hasFilter := len(x.Inverters) > 0
+					if !hasFilter {
+						deviceCache.Set(devices)
+					}
 				}
 			} else {
 				x.verbose("No quota available to update device status")
@@ -151,13 +112,20 @@ func (x *ServeCommand) startDeviceStatusMetric() {
 	}()
 }
 
+func include(inverter string) bool {
+	return len(serveCommand.Inverters) == 0 || serveCommand.Inverters[inverter]
+}
+
 func (x *ServeCommand) startRealTimeMetrics() {
 	go func() {
 		for {
 			if apiCache.isApiQuotaAvailable() {
 				x.verbose("Retrieving latest real-time data")
-				if err := updateMetrics(); err != nil {
-					fmt.Println(err)
+				data, err := foxessApi.GetRealTimeData(*deviceCache.Get(), serveCommand.Variables)
+				if err != nil {
+					fmt.Printf("Unable to retrieve latest real-time data: %v", err)
+				} else {
+					metrics.UpdateRealTime(data)
 				}
 			} else {
 				x.verbose("No quota available to update real-time metrics")
@@ -165,15 +133,6 @@ func (x *ServeCommand) startRealTimeMetrics() {
 			time.Sleep(time.Duration(x.RealTimeInterval))
 		}
 	}()
-}
-
-func updateMetrics() error {
-	deviceCache.Lock()
-	defer deviceCache.Unlock()
-	if deviceCache.deviceIds == nil {
-		deviceCache.cond.Wait()
-	}
-	return metrics.Updater(&foxessApi, deviceCache.deviceIds, serveCommand.Variables)
 }
 
 func (x *ApiCache) updater() (*ApiUsage, error) {

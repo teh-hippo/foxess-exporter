@@ -52,7 +52,7 @@ func (api *FoxessApi) GetRealTimeData(inverters []string, variables []string) ([
 	response := &RealTimeResponse{}
 	if err := api.NewRequest("POST", "/op/v1/device/real/query", request, response); err != nil {
 		return nil, err
-	} else if err = IsError(response.ErrorNumber, response.Message); err != nil {
+	} else if err = isError(response.ErrorNumber, response.Message); err != nil {
 		return nil, err
 	} else {
 		return response.Result, nil

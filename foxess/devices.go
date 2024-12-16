@@ -49,7 +49,7 @@ func (api *FoxessApi) GetDeviceList() ([]Device, error) {
 		response := &DeviceListResponse{}
 		if err := api.NewRequest("POST", "/op/v0/device/list", request, response); err != nil {
 			return nil, err
-		} else if err = IsError(response.ErrorNumber, ""); err != nil {
+		} else if err = isError(response.ErrorNumber, ""); err != nil {
 			return nil, err
 		}
 

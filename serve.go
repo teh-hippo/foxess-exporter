@@ -5,19 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/teh-hippo/foxess-exporter/serve"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
-
-type ApiCache struct {
-	sync.Mutex
-	apiUsage *ApiUsage
-	cond     *sync.Cond
-}
 
 type ServeCommand struct {
 	Port             int             `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
@@ -30,7 +23,7 @@ type ServeCommand struct {
 
 var serveCommand ServeCommand
 var deviceCache *serve.DeviceCache
-var apiCache ApiCache
+var apiCache *serve.ApiQuota
 var metrics *serve.Metrics
 
 func init() {
@@ -38,7 +31,7 @@ func init() {
 		panic(err)
 	}
 	deviceCache = serve.NewDeviceCache()
-	apiCache.cond = sync.NewCond(&apiCache)
+	apiCache = serve.NewApiCache()
 	metrics = serve.NewMetrics()
 }
 
@@ -62,9 +55,9 @@ func (x *ServeCommand) validateIntervals() error {
 func (x *ServeCommand) Execute(args []string) error {
 	deviceCache.Initalise(serveCommand.Inverters)
 
-	x.startApiQuotaManagement()
-	x.startDeviceStatusMetric()
-	x.startRealTimeMetrics()
+	run(10*time.Minute, false, x.updateApiQuota)
+	run(x.StatusInterval, true, x.updateDeviceStatus)
+	run(x.RealTimeInterval, true, x.updateRealTimeMetrics)
 
 	http.Handle("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
@@ -73,87 +66,56 @@ func (x *ServeCommand) Execute(args []string) error {
 	return server.ListenAndServe()
 }
 
-func (x *ServeCommand) startApiQuotaManagement() {
-	x.verbose("Starting API quota management")
-	go func() {
-		for {
-			x.verbose("Updating API usage")
-			if a, err := apiCache.updater(); err != nil {
-				fmt.Println(err)
-			} else {
-				log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
-			}
-			time.Sleep(10 * time.Minute)
-		}
-	}()
-}
-
-func (x *ServeCommand) startDeviceStatusMetric() {
-	x.verbose("Starting device status metric")
-	go func() {
-		for {
-			if apiCache.isApiQuotaAvailable() {
-				x.verbose("Retrieving device status")
-				devices, err := foxessApi.GetDeviceList()
-				if err != nil {
-					fmt.Printf("Unable to update device list: %v", err)
-				} else {
-					metrics.UpdateStatus(devices, include)
-					hasFilter := len(x.Inverters) > 0
-					if !hasFilter {
-						deviceCache.Set(devices)
-					}
-				}
-			} else {
-				x.verbose("No quota available to update device status")
-			}
-			time.Sleep(x.StatusInterval)
-		}
-	}()
-}
-
-func include(inverter string) bool {
-	return len(serveCommand.Inverters) == 0 || serveCommand.Inverters[inverter]
-}
-
-func (x *ServeCommand) startRealTimeMetrics() {
-	go func() {
-		for {
-			if apiCache.isApiQuotaAvailable() {
-				x.verbose("Retrieving latest real-time data")
-				data, err := foxessApi.GetRealTimeData(*deviceCache.Get(), serveCommand.Variables)
-				if err != nil {
-					fmt.Printf("Unable to retrieve latest real-time data: %v", err)
-				} else {
-					metrics.UpdateRealTime(data)
-				}
-			} else {
-				x.verbose("No quota available to update real-time metrics")
-			}
-			time.Sleep(time.Duration(x.RealTimeInterval))
-		}
-	}()
-}
-
-func (x *ApiCache) updater() (*ApiUsage, error) {
-	x.Lock()
-	defer x.Unlock()
-	a, err := GetApiUsage()
+func (x *ServeCommand) updateApiQuota() {
+	a, err := foxessApi.GetApiUsage()
 	if err != nil {
-		return nil, fmt.Errorf("failed to update API usage: %w", err)
+		fmt.Printf("failed to update API usage: %v", err)
+	} else {
+		x.verbose("Updating API usage")
+		apiCache.Update(a)
+		log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
 	}
-	x.apiUsage = a
-	x.cond.Broadcast()
-	return a, nil
+	time.Sleep(10 * time.Minute)
 }
 
-func (x *ApiCache) isApiQuotaAvailable() bool {
-	x.Lock()
-	defer x.Unlock()
-	if x.apiUsage == nil {
-		x.cond.Wait()
+func (x *ServeCommand) updateDeviceStatus() {
+	x.verbose("Retrieving device status")
+	devices, err := foxessApi.GetDeviceList()
+	if err != nil {
+		fmt.Printf("Unable to update device list: %v", err)
+	} else {
+		metrics.UpdateStatus(devices, x.Include)
+		hasFilter := len(x.Inverters) > 0
+		if !hasFilter {
+			deviceCache.Set(devices)
+		}
 	}
-	return x.apiUsage.Remaining > 0
+}
+
+func (x *ServeCommand) updateRealTimeMetrics() {
+	x.verbose("Retrieving latest real-time data")
+	data, err := foxessApi.GetRealTimeData(*deviceCache.Get(), serveCommand.Variables)
+	if err != nil {
+		fmt.Printf("Unable to retrieve latest real-time data: %v", err)
+	}
+
+	metrics.UpdateRealTime(data)
+}
+
+func run(interval time.Duration, checkApi bool, execute func()) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			if !checkApi || apiCache.IsQuotaAvailable() {
+				execute()
+			}
+		}
+	}()
+}
+
+func (x *ServeCommand) Include(inverter string) bool {
+	return len(serveCommand.Inverters) == 0 || serveCommand.Inverters[inverter]
 }
 
 func (x *ServeCommand) verbose(format string, v ...any) {

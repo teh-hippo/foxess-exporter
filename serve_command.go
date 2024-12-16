@@ -78,7 +78,7 @@ func (x *ServeCommand) updateApiQuota() {
 		fmt.Printf("failed to update API usage: %v", err)
 	} else {
 		x.verbose("Updating API usage")
-		apiCache.Update(a)
+		apiCache.Set(a)
 		log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
 	}
 }

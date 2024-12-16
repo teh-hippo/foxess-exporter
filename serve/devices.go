@@ -22,11 +22,11 @@ func (x *DeviceCache) Set(deviceIds []string) {
 	x.cond.Broadcast()
 }
 
-func (x *DeviceCache) Get() *[]string {
+func (x *DeviceCache) Get() []string {
 	x.cond.L.Lock()
 	defer x.cond.L.Unlock()
 	if x.DeviceIds == nil {
 		x.cond.Wait()
 	}
-	return &x.DeviceIds
+	return x.DeviceIds
 }

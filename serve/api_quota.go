@@ -17,7 +17,7 @@ func NewApiCache() *ApiQuota {
 	}
 }
 
-func (x *ApiQuota) Update(value *foxess.ApiUsage) {
+func (x *ApiQuota) Set(value *foxess.ApiUsage) {
 	x.cond.L.Lock()
 	defer x.cond.L.Unlock()
 	x.value = value

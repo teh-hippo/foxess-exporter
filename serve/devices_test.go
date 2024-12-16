@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIncludeWithoutInverters(t *testing.T) {
+func TestCanSet(t *testing.T) {
 	var subject = NewDeviceCache()
 	const id1 = "1"
 	const id2 = "2"

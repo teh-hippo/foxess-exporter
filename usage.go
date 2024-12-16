@@ -56,7 +56,7 @@ func (x *ApiUsageCommand) Execute(args []string) error {
 
 func GetApiUsage() (*ApiUsage, error) {
 	response := &AccessCountResponse{}
-	err := foxess.NewRequest(options.ApiKey, "GET", "/op/v0/user/getAccessCount", nil, response, options.Debug)
+	err := foxessApi.NewRequest("GET", "/op/v0/user/getAccessCount", nil, response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest api usage: %w", err)
 	}

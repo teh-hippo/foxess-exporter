@@ -61,7 +61,7 @@ func (x *VariablesCommand) Execute(args []string) error {
 
 func getVariables(gridOnly bool) (*[]map[string]Variable, error) {
 	response := &VariablesResponse{}
-	if err := foxess.NewRequest(options.ApiKey, "GET", "/op/v0/device/variable/get", nil, response, options.Debug); err != nil {
+	if err := foxessApi.NewRequest("GET", "/op/v0/device/variable/get", nil, response); err != nil {
 		return nil, err
 	} else if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {
 		return nil, err

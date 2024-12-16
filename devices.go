@@ -116,7 +116,7 @@ func GetDeviceList() ([]Device, error) {
 			PageSize:    PageSize,
 		}
 		response := &DeviceListResponse{}
-		if err := foxess.NewRequest(options.ApiKey, "POST", "/op/v0/device/list", request, response, options.Debug); err != nil {
+		if err := foxessApi.NewRequest("POST", "/op/v0/device/list", request, response); err != nil {
 			return nil, err
 		} else if err = foxess.IsError(response.ErrorNumber, ""); err != nil {
 			return nil, err

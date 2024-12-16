@@ -26,22 +26,8 @@ type HistoryCommand struct {
 }
 
 type DataPoint struct {
-	Time  CustomTime `json:"time"`
-	Value float64    `json:"value"`
-}
-type CustomTime struct {
-	time.Time
-}
-
-func (t *CustomTime) UnmarshalJSON(b []byte) (err error) {
-	value := string(b)
-	const format string = `"2006-01-02 15:04:05 MST-0700"`
-	date, err := time.Parse(format, value)
-	if err != nil {
-		return fmt.Errorf("failed to parse '%s' as date of format '%s': %w", value, format, err)
-	}
-	t.Time = date
-	return
+	Time  foxess.CustomTime `json:"time"`
+	Value float64           `json:"value"`
 }
 
 type HistoryResponse struct {
@@ -104,7 +90,7 @@ func GetVariableHistory(inverter string, begin, end int64, variables []string) (
 		request.Variables = variables
 	}
 	response := &HistoryResponse{}
-	err := foxess.NewRequest(options.ApiKey, "POST", "/op/v0/device/history/query", request, response, options.Debug)
+	err := foxessApi.NewRequest("POST", "/op/v0/device/history/query", request, response)
 	if err != nil {
 		return nil, err
 	} else if err = foxess.IsError(response.ErrorNumber, response.Message); err != nil {

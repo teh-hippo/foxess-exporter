@@ -3,6 +3,7 @@ package util
 import (
 	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +33,10 @@ func TestPlural(t *testing.T) {
 }
 
 func TestClamp(t *testing.T) {
-	assert.Equal(t, int64(10), Clamp(10, 0))
-	assert.Equal(t, int64(0), Clamp(-1, 0))
-	assert.Equal(t, int64(0), Clamp(0, 0))
+	const mid time.Duration = 5
+	const max time.Duration = 10
+	const min time.Duration = 1
+	assert.Equal(t, mid, Clamp(mid, min, max))
+	assert.Equal(t, min, Clamp(min-1, min, max))
+	assert.Equal(t, max, Clamp(max+1, min, max))
 }

@@ -2,8 +2,6 @@ package serve
 
 import (
 	"sync"
-
-	"github.com/teh-hippo/foxess-exporter/foxess"
 )
 
 type DeviceCache struct {
@@ -17,15 +15,10 @@ func NewDeviceCache() *DeviceCache {
 	}
 }
 
-func (x *DeviceCache) Set(devices []foxess.Device) {
+func (x *DeviceCache) Set(deviceIds []string) {
 	x.cond.L.Lock()
 	defer x.cond.L.Unlock()
-	x.DeviceIds = make([]string, len(devices))
-
-	for i, device := range devices {
-		x.DeviceIds[i] = device.DeviceSerialNumber
-	}
-
+	x.DeviceIds = deviceIds
 	x.cond.Broadcast()
 }
 
@@ -36,16 +29,4 @@ func (x *DeviceCache) Get() *[]string {
 		x.cond.Wait()
 	}
 	return &x.DeviceIds
-}
-
-func (x *DeviceCache) Initalise(filtered map[string]bool) {
-	if len(filtered) == 0 {
-		return
-	}
-	x.cond.L.Lock()
-	defer x.cond.L.Unlock()
-	x.DeviceIds = make([]string, 0, len(filtered))
-	for deviceId := range filtered {
-		x.DeviceIds = append(x.DeviceIds, deviceId)
-	}
 }

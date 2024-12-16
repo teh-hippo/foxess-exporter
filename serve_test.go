@@ -47,3 +47,21 @@ func TestUpdateIntervalsAreClamped(t *testing.T) {
 	assert.Equal(t, overOneMinute, serveCommand.RealTimeInterval)
 	assert.Equal(t, time.Minute, serveCommand.StatusInterval)
 }
+
+func TestIncludeWithInverters(t *testing.T) {
+	const id1 = "1"
+	const id2 = "2"
+	serveCommand.Inverters = map[string]bool{
+		id1: true,
+	}
+	assert.True(t, serveCommand.Include(id1))
+	assert.False(t, serveCommand.Include(id2))
+}
+
+func TestIncludeWithoutInverters(t *testing.T) {
+	const id1 = "1"
+	const id2 = "2"
+	serveCommand.Inverters = map[string]bool{}
+	assert.True(t, serveCommand.Include(id1))
+	assert.True(t, serveCommand.Include(id2))
+}

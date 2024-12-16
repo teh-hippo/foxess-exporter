@@ -53,7 +53,13 @@ func (x *ServeCommand) validateIntervals() error {
 }
 
 func (x *ServeCommand) Execute(args []string) error {
-	deviceCache.Initalise(serveCommand.Inverters)
+	if len(serveCommand.Inverters) > 0 {
+		ids := make([]string, 0, len(serveCommand.Inverters))
+		for deviceId := range serveCommand.Inverters {
+			ids = append(ids, deviceId)
+		}
+		deviceCache.Set(ids)
+	}
 
 	run(10*time.Minute, false, x.updateApiQuota)
 	run(x.StatusInterval, true, x.updateDeviceStatus)
@@ -86,7 +92,11 @@ func (x *ServeCommand) updateDeviceStatus() {
 		metrics.UpdateStatus(devices, x.Include)
 		hasFilter := len(x.Inverters) > 0
 		if !hasFilter {
-			deviceCache.Set(devices)
+			ids := make([]string, len(devices))
+			for i, device := range devices {
+				ids[i] = device.DeviceSerialNumber
+			}
+			deviceCache.Set(ids)
 		}
 	}
 }

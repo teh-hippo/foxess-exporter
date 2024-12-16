@@ -28,10 +28,11 @@ type ApiCache struct {
 type ServeCommand struct {
 	Port                int             `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
 	Inverters           map[string]bool `short:"i" long:"inverter" description:"Inverter serial numbers" env:"INVERTERS" env-delim:","`
-	Variables           []string        `short:"V" long:"variable" description:"Variables to retrieve" required:"false" env:"VARIABLES" env-delim:","`
+	Variables           []string        `short:"V" long:"variable" description:"Variables to retrieve" env:"VARIABLES" env-delim:","`
 	RealTimeIntervalSec int64           `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data (in seconds)." env:"REAL_TIME_INTERVAL" default:"180" required:"true"`
 	StatusIntervalSec   int64           `short:"S" long:"status-interval" description:"Frequency of updating the status of devices (in seconds)." env:"STATUS_INTERVAL" default:"900" required:"true"`
-	Verbose             bool            `short:"v" long:"verbose" description:"Enable verbose logging." required:"false"`
+	Verbose             bool            `short:"v" long:"verbose" description:"Enable verbose logging." env:"VERBOSE"`
+	DiscardStale        bool            `short:"d" long:"discard-stale" description:"Discard stale data." env:"DISCARD_STALE"`
 }
 
 type Metrics struct {
@@ -208,6 +209,9 @@ func (x *Metrics) updateMetrics() error {
 	for _, result := range data {
 		if x.lastUpdatedTime[result.DeviceSN].Equal(result.Time.Time) {
 			serveCommand.verbose("No update for %s.", result.DeviceSN)
+			if serveCommand.DiscardStale {
+				metrics.status.DeleteLabelValues(result.DeviceSN)
+			}
 			continue
 		}
 		log.Printf("Updating %d metric%s for %s, recorded:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)

@@ -5,7 +5,7 @@ import (
 )
 
 type DeviceCache struct {
-	DeviceIds []string
+	DeviceIDs []string
 	cond      *sync.Cond
 }
 
@@ -15,18 +15,19 @@ func NewDeviceCache() *DeviceCache {
 	}
 }
 
-func (x *DeviceCache) Set(deviceIds []string) {
+func (x *DeviceCache) Set(deviceIDs []string) {
 	x.cond.L.Lock()
 	defer x.cond.L.Unlock()
-	x.DeviceIds = deviceIds
+	x.DeviceIDs = deviceIDs
 	x.cond.Broadcast()
 }
 
 func (x *DeviceCache) Get() []string {
 	x.cond.L.Lock()
 	defer x.cond.L.Unlock()
-	if x.DeviceIds == nil {
+
+	if x.DeviceIDs == nil {
 		x.cond.Wait()
 	}
-	return x.DeviceIds
+	return x.DeviceIDs
 }

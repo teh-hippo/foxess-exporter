@@ -39,8 +39,10 @@ func (x *Metrics) UpdateRealTime(data []foxess.RealTimeData) {
 		if x.lastUpdatedTime[result.DeviceSN].Equal(result.Time.Time) {
 			continue
 		}
+
 		log.Printf("Updating %d metric%s for %s, timestamp:%v.", len(result.Variables), util.Pluralise(len(result.Variables)), result.DeviceSN, result.Time.Time)
 		x.lastUpdatedTime[result.DeviceSN] = result.Time.Time
+
 		for _, variable := range result.Variables {
 			x.realtime.WithLabelValues(result.DeviceSN, variable.Variable).Set(variable.Value.Number)
 		}

@@ -16,7 +16,7 @@ type VariablesCommand struct {
 var variablesCommand VariablesCommand
 
 func init() {
-	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieves from FoxESS all variables that can be requested for history.", &variablesCommand); err != nil {
+	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieve all FoxESS variables for use with history or real-time data.", &variablesCommand); err != nil {
 		panic(err)
 	}
 }
@@ -24,12 +24,13 @@ func init() {
 func (x *VariablesCommand) Execute(args []string) error {
 	variables, err := foxessApi.GetVariables(x.GridOnly)
 	if err != nil {
-		return nil
+		return fmt.Errorf("failed to retrieve variables: %w", err)
 	}
 
 	switch x.Format {
 	case "table":
 		tbl := table.New("Variable Name", "Unit", "Grid Tied", "Energy Storage")
+
 		for _, variable := range *variables {
 			for key := range maps.Keys(variable) {
 				item := variable[key]
@@ -39,7 +40,12 @@ func (x *VariablesCommand) Execute(args []string) error {
 		tbl.Print()
 		return nil
 	case "json":
-		return util.JsonToStdOut(variables)
+		err := util.JsonToStdOut(variables)
+		if err != nil {
+			return fmt.Errorf("failed to output variables: %w", err)
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}

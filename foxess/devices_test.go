@@ -7,6 +7,7 @@ import (
 )
 
 func TestCurrentStatus(t *testing.T) {
+	t.Parallel()
 	testStatus := func(status int, expected string) {
 		testDevice := &Device{
 			Status: status,

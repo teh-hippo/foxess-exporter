@@ -8,9 +8,10 @@ import (
 )
 
 func TestQuotaAvailable(t *testing.T) {
+	t.Parallel()
 	var subject = NewApiCache()
 	assertThat := func(remaining float64, expected bool) {
-		subject.Set(&foxess.ApiUsage{
+		subject.Set(&foxess.APIUsage{
 			Remaining: remaining,
 		})
 		assert.Equal(t, expected, subject.IsQuotaAvailable())

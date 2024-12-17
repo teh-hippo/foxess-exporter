@@ -73,7 +73,7 @@ func (x *ServeCommand) Execute(args []string) error {
 }
 
 func (x *ServeCommand) updateApiQuota() {
-	a, err := foxessApi.GetApiUsage()
+	a, err := foxessApi.GetAPIUsage()
 	if err != nil {
 		fmt.Printf("failed to update API usage: %v", err)
 	} else {

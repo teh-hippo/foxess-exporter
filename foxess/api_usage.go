@@ -24,7 +24,6 @@ const PERCENT = 100
 func (api *FoxessApi) GetAPIUsage() (*APIUsage, error) {
 	response := &AccessCountResponse{}
 	err := api.NewRequest("GET", "/op/v0/user/getAccessCount", nil, response)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest api usage: %w", err)
 	}

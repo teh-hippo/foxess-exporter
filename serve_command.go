@@ -22,14 +22,13 @@ type ServeCommand struct {
 }
 
 var (
-	serveCommand ServeCommand
-	deviceCache  serve.DeviceCache
-	apiCache     serve.ApiQuota
-	metrics      serve.Metrics
+	deviceCache serve.DeviceCache
+	apiCache    serve.ApiQuota
+	metrics     serve.Metrics
 )
 
 func init() {
-	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {
+	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &ServeCommand{}); err != nil {
 		panic(err)
 	}
 	deviceCache = *serve.NewDeviceCache()
@@ -39,9 +38,8 @@ func init() {
 
 func (x *ServeCommand) validateIntervals() error {
 	const oneDay time.Duration = 24 * time.Hour
-	const oneMinute = time.Minute
-	x.RealTimeInterval = util.Clamp(x.RealTimeInterval, oneMinute, oneDay)
-	x.StatusInterval = util.Clamp(x.StatusInterval, oneMinute, oneDay)
+	x.RealTimeInterval = util.Clamp(x.RealTimeInterval, time.Minute, oneDay)
+	x.StatusInterval = util.Clamp(x.StatusInterval, time.Minute, oneDay)
 
 	apiCallsPerDay := float64(oneDay.Minutes())
 	realTimeCalls := oneDay / x.RealTimeInterval
@@ -54,16 +52,16 @@ func (x *ServeCommand) validateIntervals() error {
 	return nil
 }
 
-func (x *ServeCommand) Execute(args []string) error {
-	if len(serveCommand.Inverters) > 0 {
-		ids := make([]string, 0, len(serveCommand.Inverters))
-		for deviceId := range serveCommand.Inverters {
-			ids = append(ids, deviceId)
+func (x *ServeCommand) Execute(_ []string) error {
+	if len(x.Inverters) > 0 {
+		ids := make([]string, 0, len(x.Inverters))
+		for deviceID := range x.Inverters {
+			ids = append(ids, deviceID)
 		}
 		deviceCache.Set(ids)
 	}
 
-	run(10*time.Minute, false, x.updateApiQuota)
+	run(10*time.Minute, false, x.updateAPIQuota)
 	run(x.StatusInterval, true, x.updateDeviceStatus)
 	run(x.RealTimeInterval, true, x.updateRealTimeMetrics)
 
@@ -74,14 +72,14 @@ func (x *ServeCommand) Execute(args []string) error {
 	return server.ListenAndServe()
 }
 
-func (x *ServeCommand) updateApiQuota() {
-	a, err := foxessApi.GetAPIUsage()
+func (x *ServeCommand) updateAPIQuota() {
+	apiUsage, err := foxessApi.GetAPIUsage()
 	if err != nil {
 		fmt.Printf("failed to update API usage: %v", err)
 	} else {
 		x.verbose("Updating API usage")
-		apiCache.Set(a)
-		log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", a.Total-a.Remaining, a.Total, a.PercentageUsed)
+		apiCache.Set(apiUsage)
+		log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Total-apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
 	}
 }
 
@@ -98,6 +96,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 			for i, device := range devices {
 				ids[i] = device.DeviceSerialNumber
 			}
+
 			deviceCache.Set(ids)
 		}
 	}
@@ -105,7 +104,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 
 func (x *ServeCommand) updateRealTimeMetrics() {
 	x.verbose("Retrieving latest real-time data")
-	data, err := foxessApi.GetRealTimeData(deviceCache.Get(), serveCommand.Variables)
+	data, err := foxessApi.GetRealTimeData(deviceCache.Get(), x.Variables)
 	if err != nil {
 		fmt.Printf("Unable to retrieve latest real-time data: %v", err)
 	}
@@ -113,12 +112,13 @@ func (x *ServeCommand) updateRealTimeMetrics() {
 	metrics.UpdateRealTime(data)
 }
 
-func run(interval time.Duration, checkApi bool, execute func()) {
+func run(interval time.Duration, checkAPI bool, execute func()) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
 		for range ticker.C {
-			if !checkApi || apiCache.IsQuotaAvailable() {
+			if !checkAPI || apiCache.IsQuotaAvailable() {
 				execute()
 			}
 		}
@@ -126,7 +126,7 @@ func run(interval time.Duration, checkApi bool, execute func()) {
 }
 
 func (x *ServeCommand) Include(inverter string) bool {
-	return len(serveCommand.Inverters) == 0 || serveCommand.Inverters[inverter]
+	return len(x.Inverters) == 0 || x.Inverters[inverter]
 }
 
 func (x *ServeCommand) verbose(format string, v ...any) {

@@ -13,15 +13,13 @@ type VariablesCommand struct {
 	Format   string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
-var variablesCommand VariablesCommand
-
 func init() {
-	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieve all FoxESS variables for use with history or real-time data.", &variablesCommand); err != nil {
+	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieve FoxESS variables for use with history or real-time data.", &VariablesCommand{}); err != nil {
 		panic(err)
 	}
 }
 
-func (x *VariablesCommand) Execute(args []string) error {
+func (x *VariablesCommand) Execute(_ []string) error {
 	variables, err := foxessApi.GetVariables(x.GridOnly)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve variables: %w", err)

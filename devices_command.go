@@ -13,15 +13,13 @@ type DevicesCommand struct {
 	Format     string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
-var devicesCommand DevicesCommand
-
 func init() {
-	if _, err := parser.AddCommand("devices", "List devices", "Obtains all devices the provided key has access to", &devicesCommand); err != nil {
+	if _, err := parser.AddCommand("devices", "List devices", "Obtains all devices the provided key has access to", &DevicesCommand{}); err != nil {
 		panic(err)
 	}
 }
 
-func (x *DevicesCommand) Execute(args []string) error {
+func (x *DevicesCommand) Execute(_ []string) error {
 	if x.Format == "json" && x.FullOutput {
 		return fmt.Errorf("full output is not supported for JSON format")
 	}

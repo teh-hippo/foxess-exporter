@@ -13,15 +13,13 @@ type RealTimeCommand struct {
 	Format    string   `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
-var realTimeCommand RealTimeCommand
-
 func init() {
-	if _, err := parser.AddCommand("realtime", "Get real-time data", "Get the current real-time data for an inverter.", &realTimeCommand); err != nil {
+	if _, err := parser.AddCommand("realtime", "Get real-time data", "Get the current real-time data for an inverter.", &RealTimeCommand{}); err != nil {
 		panic(err)
 	}
 }
 
-func (x *RealTimeCommand) Execute(args []string) error {
+func (x *RealTimeCommand) Execute(_ []string) error {
 	data, err := foxessApi.GetRealTimeData(x.Inverters, x.Variables)
 	if err != nil {
 		return fmt.Errorf("unable to retrieve real-time data from FoxESS: %w", err)

@@ -7,19 +7,17 @@ import (
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
-type ApiUsageCommand struct {
+type APIUsageCommand struct {
 	Format string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
-var apiUsageCommand ApiUsageCommand
-
 func init() {
-	if _, err := parser.AddCommand("api-usage", "Show FoxESS API usage", "Show FoxESS API usage", &apiUsageCommand); err != nil {
+	if _, err := parser.AddCommand("api-usage", "Show FoxESS API usage", "Show FoxESS API usage", &APIUsageCommand{}); err != nil {
 		panic(err)
 	}
 }
 
-func (x *ApiUsageCommand) Execute(args []string) error {
+func (x *APIUsageCommand) Execute(_ []string) error {
 	apiUsage, err := foxessApi.GetAPIUsage()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve the latest api usage: %w", err)

@@ -18,15 +18,13 @@ type HistoryCommand struct {
 	Format    string   `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
-var historyCommand HistoryCommand
-
 func init() {
-	if _, err := parser.AddCommand("history", "Get the history", "Get the history of a variable", &historyCommand); err != nil {
+	if _, err := parser.AddCommand("history", "Get the history", "Get the history of a variable", &HistoryCommand{}); err != nil {
 		panic(err)
 	}
 }
 
-func (x *HistoryCommand) Execute(args []string) error {
+func (x *HistoryCommand) Execute(_ []string) error {
 	if x.Begin == 0 || x.End == 0 {
 		if x.Begin != x.End {
 			return errors.New("provide both begin and end, or neither")

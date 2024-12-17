@@ -21,10 +21,12 @@ type ServeCommand struct {
 	Verbose          bool            `short:"v" long:"verbose" description:"Enable verbose logging." env:"VERBOSE"`
 }
 
-var serveCommand ServeCommand
-var deviceCache serve.DeviceCache
-var apiCache serve.ApiQuota
-var metrics serve.Metrics
+var (
+	serveCommand ServeCommand
+	deviceCache  serve.DeviceCache
+	apiCache     serve.ApiQuota
+	metrics      serve.Metrics
+)
 
 func init() {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", &serveCommand); err != nil {

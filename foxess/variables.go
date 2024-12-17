@@ -2,7 +2,7 @@ package foxess
 
 import "maps"
 
-// Define the structure for the response
+// Define the structure for the response.
 type VariablesResponse struct {
 	ErrorNumber int                   `json:"errno"`
 	Message     string                `json:"msg"`

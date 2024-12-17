@@ -13,15 +13,18 @@ type AccessCountResponse struct {
 	} `json:"result"`
 }
 
-type ApiUsage struct {
+type APIUsage struct {
 	Total          float64
 	Remaining      float64
 	PercentageUsed float64
 }
 
-func (api *FoxessApi) GetApiUsage() (*ApiUsage, error) {
+const PERCENT = 100
+
+func (api *FoxessApi) GetAPIUsage() (*APIUsage, error) {
 	response := &AccessCountResponse{}
 	err := api.NewRequest("GET", "/op/v0/user/getAccessCount", nil, response)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest api usage: %w", err)
 	}
@@ -40,8 +43,8 @@ func (api *FoxessApi) GetApiUsage() (*ApiUsage, error) {
 		return nil, fmt.Errorf("failed to convert to float '%v': %w", response.Result.Remaining, err)
 	}
 
-	percentage := (total - remaining) / total * 100
-	return &ApiUsage{
+	percentage := (total - remaining) / total * PERCENT
+	return &APIUsage{
 		Total:          total,
 		Remaining:      remaining,
 		PercentageUsed: percentage,

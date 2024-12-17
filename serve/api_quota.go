@@ -7,7 +7,7 @@ import (
 )
 
 type ApiQuota struct {
-	value *foxess.ApiUsage
+	value *foxess.APIUsage
 	cond  *sync.Cond
 }
 
@@ -17,7 +17,7 @@ func NewApiCache() *ApiQuota {
 	}
 }
 
-func (x *ApiQuota) Set(value *foxess.ApiUsage) {
+func (x *ApiQuota) Set(value *foxess.APIUsage) {
 	x.cond.L.Lock()
 	defer x.cond.L.Unlock()
 	x.value = value

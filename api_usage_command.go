@@ -20,7 +20,7 @@ func init() {
 }
 
 func (x *ApiUsageCommand) Execute(args []string) error {
-	apiUsage, err := foxessApi.GetApiUsage()
+	apiUsage, err := foxessApi.GetAPIUsage()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve the latest api usage: %w", err)
 	}

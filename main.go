@@ -19,6 +19,7 @@ func main() {
 			if flagsErr == flags.ErrHelp {
 				os.Exit(0)
 			}
+
 			os.Exit(1)
 		default:
 			os.Exit(1)

@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,8 +61,10 @@ func (api *FoxessApi) NewRequest(operation string, path string, params interface
 	signature := CalculateSignature(path, api.ApiKey, timestamp)
 	operationParts := strings.Split(operation, "/")
 	operationName := operationParts[int(math.Max(0, float64(len(operationParts)-1)))]
-	var body io.Reader
-	var err error
+	var (
+		body io.Reader
+		err  error
+	)
 
 	if params != nil {
 		body, err = util.ToReader(params)
@@ -75,16 +78,17 @@ func (api *FoxessApi) NewRequest(operation string, path string, params interface
 		return fmt.Errorf("failed to create %s request to %s: %w", operation, url, err)
 	}
 
-	request.Header.Set("token", api.ApiKey)
-	request.Header.Set("signature", signature)
-	request.Header.Set("timestamp", fmt.Sprint(timestamp))
-	request.Header.Set("lang", "en")
+	request.Header.Set("Token", api.ApiKey)
+	request.Header.Set("Signature", signature)
+	request.Header.Set("Timestamp", strconv.FormatInt(timestamp, 10))
+	request.Header.Set("Lang", "en")
 	request.Header.Set("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return fmt.Errorf("failed to perform %s request to %s: %w", operation, url, err)
 	}
 
+	defer response.Body.Close()
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read the body of %s request to %s: %w", operation, url, err)

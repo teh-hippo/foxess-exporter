@@ -24,21 +24,28 @@ func init() {
 func (x *RealTimeCommand) Execute(args []string) error {
 	data, err := foxessApi.GetRealTimeData(x.Inverters, x.Variables)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to retrieve real-time data from FoxESS: %w", err)
 	}
 
 	switch x.Format {
 	case "table":
 		tbl := table.New("Device", "Time", "Variable", "Name", "Unit", "Value")
+
 		for _, item := range data {
 			for _, variable := range item.Variables {
 				tbl.AddRow(item.DeviceSN, item.Time, variable.Variable, variable.Name, variable.Unit, variable.Value.Number)
 			}
 		}
+
 		tbl.Print()
 		return nil
 	case "json":
-		return util.JsonToStdOut(data)
+		err := util.JsonToStdOut(data)
+		if err != nil {
+			return fmt.Errorf("unable to output JSON: %w", err)
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}

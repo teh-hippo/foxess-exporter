@@ -2,3 +2,11 @@ run:
   timeout: 5m
 linters:
   enable-all: true
+
+linters-settings:
+  lll:
+    line-length: 180
+  misspell:
+    locale: UK
+    ignore-words:
+      - "teh"

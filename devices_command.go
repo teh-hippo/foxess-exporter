@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/jessevdk/go-flags"
@@ -25,8 +24,8 @@ func (x *DevicesCommand) Register(parser *flags.Parser, config *foxess.Config) {
 }
 
 func (x *DevicesCommand) Execute(_ []string) error {
-	if x.Format == "json" && x.FullOutput {
-		return errors.New("full output is not supported for JSON format")
+	if x.Format == FormatJSON && x.FullOutput {
+		return fmt.Errorf("%w: %s", ErrInvalidArgument, "full output is not supported for JSON format")
 	}
 
 	devices, err := x.config.GetDeviceList()
@@ -46,7 +45,7 @@ func (x *DevicesCommand) Execute(_ []string) error {
 
 		return nil
 	default:
-		return fmt.Errorf("unsupported output format: %s", x.Format)
+		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, x.Format)
 	}
 }
 

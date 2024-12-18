@@ -25,13 +25,18 @@ func (x *APIUsageCommand) Execute(_ []string) error {
 	}
 
 	switch x.Format {
-	case "table":
+	case FormatTable:
 		tbl := table.New("Total", "Remaining", "Used")
 		tbl.AddRow(apiUsage.Total, apiUsage.Remaining, fmt.Sprintf("%.2f%%", apiUsage.PercentageUsed))
 		tbl.Print()
+
 		return nil
-	case "json":
-		return util.JsonToStdOut(apiUsage)
+	case FormatJSON:
+		if err := util.JSONToStdOut(apiUsage); err != nil {
+			return fmt.Errorf("failed to output api usage: %w", err)
+		}
+
+		return nil
 	default:
 		return fmt.Errorf("unsupported output format: %s", x.Format)
 	}

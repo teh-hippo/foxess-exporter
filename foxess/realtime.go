@@ -22,19 +22,20 @@ type RealTimeData struct {
 	Time     CustomTime `json:"time"`
 }
 
-func (api *FoxessAPI) GetRealTimeData(inverters []string, variables []string) ([]RealTimeData, error) {
+func (api *Config) GetRealTimeData(inverters []string, variables []string) ([]RealTimeData, error) {
 	request := &RealTimeRequest{
 		SerialNumbers: inverters,
 	}
 	if variables != nil {
 		request.Variables = variables
 	}
+
 	response := &RealTimeResponse{}
 	if err := api.NewRequest("POST", "/op/v1/device/real/query", request, response); err != nil {
 		return nil, err
 	} else if err = isError(response.ErrorNumber, response.Message); err != nil {
 		return nil, err
-	} else {
-		return response.Result, nil
 	}
+
+	return response.Result, nil
 }

@@ -52,7 +52,7 @@ func (x *HistoryCommand) Execute(_ []string) error {
 
 func (x *HistoryCommand) writeResult(history []foxess.VariableHistory) error {
 	switch x.Format {
-	case "table":
+	case FormatTable:
 		tbl := table.New("Variable", "Name", "Unit", "Time", "Value")
 
 		for _, variable := range history {
@@ -62,13 +62,14 @@ func (x *HistoryCommand) writeResult(history []foxess.VariableHistory) error {
 
 			tbl.Print()
 		}
-	case "json":
-		err := util.JsonToStdOut(history)
+	case FormatJSON:
+		err := util.JSONToStdOut(history)
 		if err != nil {
 			return fmt.Errorf("failed to write json output: %w", err)
 		}
 
 		return nil
 	}
+
 	return nil
 }

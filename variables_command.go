@@ -27,7 +27,7 @@ func (x *VariablesCommand) Execute(_ []string) error {
 	}
 
 	switch x.Format {
-	case "table":
+	case FormatTable:
 		tbl := table.New("Variable Name", "Unit", "Grid Tied", "Energy Storage")
 
 		for _, variable := range *variables {
@@ -36,10 +36,11 @@ func (x *VariablesCommand) Execute(_ []string) error {
 				tbl.AddRow(key, item.Unit, item.GridTiedInverter, item.EnergyStorageInverter)
 			}
 		}
+
 		tbl.Print()
 		return nil
-	case "json":
-		err := util.JsonToStdOut(variables)
+	case FormatJSON:
+		err := util.JSONToStdOut(variables)
 		if err != nil {
 			return fmt.Errorf("failed to output variables: %w", err)
 		}

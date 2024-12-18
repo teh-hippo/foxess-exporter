@@ -29,5 +29,6 @@ func (x *DeviceCache) Get() []string {
 	if x.DeviceIDs == nil {
 		x.cond.Wait()
 	}
+
 	return x.DeviceIDs
 }

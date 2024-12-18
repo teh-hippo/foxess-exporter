@@ -42,6 +42,6 @@ func (x *APIUsageCommand) Execute(_ []string) error {
 
 		return nil
 	default:
-		return fmt.Errorf("unsupported output format: %s", x.Format)
+		return fmt.Errorf("%w: %s", ErrUnsupportedFormat, x.Format)
 	}
 }

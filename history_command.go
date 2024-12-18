@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -31,7 +30,7 @@ func (x *HistoryCommand) Register(parser *flags.Parser, config *foxess.Config) {
 func (x *HistoryCommand) Execute(_ []string) error {
 	if x.Begin == 0 || x.End == 0 {
 		if x.Begin != x.End {
-			return errors.New("provide both begin and end, or neither")
+			return fmt.Errorf("%w: %s", ErrInvalidArgument, "provide both begin and end, or neither")
 		}
 
 		now := time.Now()

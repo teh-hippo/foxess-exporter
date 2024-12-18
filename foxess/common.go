@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5" //nolint:gosec
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -33,9 +34,11 @@ type ParamHolder interface {
 	apiKey() string
 }
 
+var ErrFoxessErrorResponse = errors.New("error response from foxess")
+
 func isError(errorNumber int, message string) error {
 	if errorNumber != 0 {
-		return fmt.Errorf("error response from foxess: %d - %s", errorNumber, message)
+		return fmt.Errorf("%d %w: %s", errorNumber, ErrFoxessErrorResponse, message)
 	}
 
 	return nil

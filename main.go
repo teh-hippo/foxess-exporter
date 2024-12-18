@@ -13,6 +13,11 @@ const (
 	FormatJSON  = "json"
 )
 
+var (
+	ErrUnsupportedFormat = errors.New("unsupported output format")
+	ErrInvalidArgument   = errors.New("invalid argument")
+)
+
 type Runner interface {
 	Register(parser *flags.Parser, config *foxess.Config)
 }

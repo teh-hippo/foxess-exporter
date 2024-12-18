@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -53,7 +52,7 @@ func (x *ServeCommand) validateIntervals() error {
 	apiCallsPerDay -= float64(statusCalls)
 
 	if apiCallsPerDay < 0 {
-		return errors.New("current intervals would result in API usage exceeding the maximum daily allowance")
+		return fmt.Errorf("%w: %s", ErrInvalidArgument, "current intervals would result in API usage exceeding the maximum daily allowance")
 	}
 
 	return nil

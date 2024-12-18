@@ -37,7 +37,7 @@ type Device struct {
 	ProductType        string `json:"productType"`
 }
 
-func (api *FoxessApi) GetDeviceList() ([]Device, error) {
+func (api *FoxessAPI) GetDeviceList() ([]Device, error) {
 	currentPage := 1
 	total := 1
 	devices := make([]Device, 0)

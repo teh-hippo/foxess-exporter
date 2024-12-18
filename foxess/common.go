@@ -15,8 +15,8 @@ import (
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
-type FoxessApi struct {
-	ApiKey string `short:"k" long:"api-key" description:"FoxESS API Key" required:"true" env:"API_KEY"`
+type FoxessAPI struct {
+	APIKey string `short:"k" long:"api-key" description:"FoxESS API Key" required:"true" env:"API_KEY"`
 	Debug  bool   `short:"d" long:"debug" description:"Enable debug output"`
 }
 
@@ -39,7 +39,7 @@ func isError(errorNumber int, message string) error {
 	return nil
 }
 
-func (t *CustomTime) UnmarshalJSON(b []byte) (err error) {
+func (t *CustomTime) UnmarshalJSON(b []byte) error {
 	value := string(b)
 	const format string = `"2006-01-02 15:04:05 MST-0700"`
 	date, err := time.Parse(format, value)
@@ -47,7 +47,22 @@ func (t *CustomTime) UnmarshalJSON(b []byte) (err error) {
 		return fmt.Errorf("failed to parse '%s' as date of format '%s': %w", value, format, err)
 	}
 	t.Time = date
-	return
+	return nil
+}
+
+func (t *NumberAsNil) UnmarshalJSON(b []byte) error {
+	if len(b) >= 2 && b[0] == '"' {
+		b = b[1 : len(b)-1]
+		if len(b) == 0 {
+			return nil
+		}
+	}
+
+	if err := json.Unmarshal(b, &t.Number); err != nil {
+		return fmt.Errorf("failed to parse '%s': %w", b, err)
+	}
+
+	return nil
 }
 
 func CalculateSignature(path string, apiKey string, timestamp int64) string {
@@ -55,10 +70,10 @@ func CalculateSignature(path string, apiKey string, timestamp int64) string {
 	return fmt.Sprintf("%x", md5.Sum(term))
 }
 
-func (api *FoxessApi) NewRequest(operation string, path string, params interface{}, result interface{}) error {
+func (api *FoxessAPI) NewRequest(operation string, path string, params interface{}, result interface{}) error {
 	url := "https://www.foxesscloud.com" + path
 	timestamp := time.Now().UnixMilli()
-	signature := CalculateSignature(path, api.ApiKey, timestamp)
+	signature := CalculateSignature(path, api.APIKey, timestamp)
 	operationParts := strings.Split(operation, "/")
 	operationName := operationParts[int(math.Max(0, float64(len(operationParts)-1)))]
 	var (
@@ -78,7 +93,7 @@ func (api *FoxessApi) NewRequest(operation string, path string, params interface
 		return fmt.Errorf("failed to create %s request to %s: %w", operation, url, err)
 	}
 
-	request.Header.Set("Token", api.ApiKey)
+	request.Header.Set("Token", api.APIKey)
 	request.Header.Set("Signature", signature)
 	request.Header.Set("Timestamp", strconv.FormatInt(timestamp, 10))
 	request.Header.Set("Lang", "en")

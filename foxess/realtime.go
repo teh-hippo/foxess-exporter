@@ -1,10 +1,5 @@
 package foxess
 
-import (
-	"encoding/json"
-	"fmt"
-)
-
 type RealTimeRequest struct {
 	SerialNumbers []string `json:"sns"`
 	Variables     []string `json:"variables"`
@@ -27,22 +22,7 @@ type RealTimeData struct {
 	Time     CustomTime `json:"time"`
 }
 
-func (t *NumberAsNil) UnmarshalJSON(b []byte) (err error) {
-	if len(b) >= 2 && b[0] == '"' {
-		b = b[1 : len(b)-1]
-		if len(b) == 0 {
-			return nil
-		}
-	}
-
-	if err = json.Unmarshal(b, &t.Number); err != nil {
-		return fmt.Errorf("failed to parse '%s': %w", b, err)
-	}
-
-	return nil
-}
-
-func (api *FoxessApi) GetRealTimeData(inverters []string, variables []string) ([]RealTimeData, error) {
+func (api *FoxessAPI) GetRealTimeData(inverters []string, variables []string) ([]RealTimeData, error) {
 	request := &RealTimeRequest{
 		SerialNumbers: inverters,
 	}

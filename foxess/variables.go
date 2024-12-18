@@ -15,7 +15,7 @@ type Variable struct {
 	EnergyStorageInverter bool   `json:"Energy-storage inverter"`
 }
 
-func (api *FoxessApi) GetVariables(gridOnly bool) (*[]map[string]Variable, error) {
+func (api *FoxessAPI) GetVariables(gridOnly bool) (*[]map[string]Variable, error) {
 	response := &VariablesResponse{}
 	if err := api.NewRequest("GET", "/op/v0/device/variable/get", nil, response); err != nil {
 		return nil, err

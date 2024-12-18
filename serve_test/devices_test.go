@@ -1,9 +1,10 @@
-package serve
+package serve_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/teh-hippo/foxess-exporter/serve"
 )
 
 func TestCanSet(t *testing.T) {
@@ -14,7 +15,7 @@ func TestCanSet(t *testing.T) {
 		id2 = "2"
 	)
 
-	subject := NewDeviceCache()
+	subject := serve.NewDeviceCache()
 	expected1 := []string{id1, id2}
 
 	subject.Set(expected1)

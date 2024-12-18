@@ -16,8 +16,8 @@ import (
 )
 
 type FoxessAPI struct {
-	APIKey string `short:"k" long:"api-key" description:"FoxESS API Key" required:"true" env:"API_KEY"`
-	Debug  bool   `short:"d" long:"debug" description:"Enable debug output"`
+	APIKey string `short:"k" long:"api-key" description:"FoxESS API Key"      env:"API_KEY" required:"true"`
+	Debug  bool   `short:"d" long:"debug"   description:"Enable debug output" env:"DEBUG"`
 }
 
 type CustomTime struct {

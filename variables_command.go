@@ -11,7 +11,7 @@ import (
 
 type VariablesCommand struct {
 	GridOnly bool   `short:"g" long:"grid-only" description:"Only show variables related to a grid tied inverter"`
-	Format   string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
+	Format   string `short:"o" long:"output"    description:"Output format"                                       default:"table" choices:"table,json"`
 }
 
 func (x *VariablesCommand) Register(parser *flags.Parser) {

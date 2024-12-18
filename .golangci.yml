@@ -10,3 +10,12 @@ linters-settings:
     locale: UK
     ignore-words:
       - "teh"
+  tagalign:
+    order:
+      - "short"
+      - "long"
+      - "description"
+      - "env"
+      - "required"
+      - "default"
+      - "choices"

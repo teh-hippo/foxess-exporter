@@ -12,11 +12,11 @@ import (
 )
 
 type HistoryCommand struct {
-	Inverter  string   `short:"i" long:"inverter" description:"Inverter serial number" required:"true"`
-	Begin     int64    `short:"b" long:"begin" description:"Begin time for request in milliseconds"`
-	End       int64    `short:"e" long:"end" description:"End time for request in milliseconds"`
-	Variables []string `short:"V" long:"variable" description:"Variables to retrieve" required:"false"`
-	Format    string   `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
+	Inverter  string   `short:"i" long:"inverter" description:"Inverter serial number"                 required:"true"`
+	Begin     int64    `short:"b" long:"begin"    description:"Begin time for request in milliseconds"`
+	End       int64    `short:"e" long:"end"      description:"End time for request in milliseconds"`
+	Variables []string `short:"V" long:"variable" description:"Variables to retrieve"`
+	Format    string   `short:"o" long:"output"   description:"Output format"                          default:"table" choices:"table,json"`
 }
 
 func (x *HistoryCommand) Register(parser *flags.Parser) {

@@ -1,4 +1,4 @@
-package util
+package util_test
 
 import (
 	"io"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type DummyRequest struct {
@@ -18,7 +19,7 @@ func TestToReader(t *testing.T) {
 
 	want := []byte("{\"sn\":\"1234567890\"}")
 
-	result, err := ToReader(&DummyRequest{SerialNumber: "1234567890"})
+	result, err := util.ToReader(&DummyRequest{SerialNumber: "1234567890"})
 	if err != nil {
 		require.Error(t, err)
 	}
@@ -33,10 +34,10 @@ func TestToReader(t *testing.T) {
 
 func TestPlural(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "", Pluralise(1))
-	assert.Equal(t, "s", Pluralise(0))
-	assert.Equal(t, "s", Pluralise(2))
-	assert.Equal(t, "s", Pluralise(789))
+	assert.Equal(t, "", util.Pluralise(1))
+	assert.Equal(t, "s", util.Pluralise(0))
+	assert.Equal(t, "s", util.Pluralise(2))
+	assert.Equal(t, "s", util.Pluralise(789))
 }
 
 func TestClamp(t *testing.T) {
@@ -48,7 +49,7 @@ func TestClamp(t *testing.T) {
 		minLimit time.Duration = 1
 	)
 
-	assert.Equal(t, mid, Clamp(mid, minLimit, maxLimit))
-	assert.Equal(t, minLimit, Clamp(minLimit-1, minLimit, maxLimit))
-	assert.Equal(t, maxLimit, Clamp(maxLimit+1, minLimit, maxLimit))
+	assert.Equal(t, mid, util.Clamp(mid, minLimit, maxLimit))
+	assert.Equal(t, minLimit, util.Clamp(minLimit-1, minLimit, maxLimit))
+	assert.Equal(t, maxLimit, util.Clamp(maxLimit+1, minLimit, maxLimit))
 }

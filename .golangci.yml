@@ -6,7 +6,6 @@ linters:
     - depguard
     - err113
     - exhaustruct
-    - testpackage
     - tagliatelle
     - exportloopref
 

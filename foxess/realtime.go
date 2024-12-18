@@ -22,7 +22,7 @@ type RealTimeData struct {
 	Time     CustomTime `json:"time"`
 }
 
-func (api *Config) GetRealTimeData(inverters []string, variables []string) ([]RealTimeData, error) {
+func (api *Config) GetRealTimeData(inverters, variables []string) ([]RealTimeData, error) {
 	request := &RealTimeRequest{
 		SerialNumbers: inverters,
 	}

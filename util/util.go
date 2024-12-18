@@ -49,10 +49,14 @@ func JSONToStdOut(v any) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 
-	return enc.Encode(v)
+	if err := enc.Encode(v); err != nil {
+		return fmt.Errorf("failed to encode JSON to std out: %w", err)
+	}
+
+	return nil
 }
 
-func Clamp(value time.Duration, minLimit time.Duration, maxLimit time.Duration) time.Duration {
+func Clamp(value, minLimit, maxLimit time.Duration) time.Duration {
 	if value < minLimit {
 		return minLimit
 	} else if value > maxLimit {

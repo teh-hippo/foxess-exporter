@@ -1,7 +1,8 @@
 package foxess
 
 import (
-	"crypto/md5"
+	"context"
+	"crypto/md5" //nolint:gosec
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,6 +45,7 @@ func (t *CustomTime) UnmarshalJSON(b []byte) error {
 	const format string = `"2006-01-02 15:04:05 MST-0700"`
 
 	value := string(b)
+
 	date, err := time.Parse(format, value)
 	if err != nil {
 		return fmt.Errorf("failed to parse '%s' as date of format '%s': %w", value, format, err)
@@ -69,12 +71,13 @@ func (t *NumberAsNil) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func CalculateSignature(path string, apiKey string, timestamp int64) string {
+func CalculateSignature(path, apiKey string, timestamp int64) string {
 	term := []byte(path + "\\r\\n" + apiKey + "\\r\\n" + strconv.FormatInt(timestamp, 10))
-	return fmt.Sprintf("%x", md5.Sum(term))
+
+	return fmt.Sprintf("%x", md5.Sum(term)) //nolint:gosec
 }
 
-func (api *Config) NewRequest(operation string, path string, params interface{}, result interface{}) error {
+func (api *Config) NewRequest(operation, path string, params, result interface{}) error {
 	url := "https://www.foxesscloud.com" + path
 	timestamp := time.Now().UnixMilli()
 	signature := CalculateSignature(path, api.APIKey, timestamp)
@@ -93,7 +96,7 @@ func (api *Config) NewRequest(operation string, path string, params interface{},
 		}
 	}
 
-	request, err := http.NewRequest(operation, url, body)
+	request, err := http.NewRequestWithContext(context.Background(), operation, url, body)
 	if err != nil {
 		return fmt.Errorf("failed to create %s request to %s: %w", operation, url, err)
 	}
@@ -103,12 +106,14 @@ func (api *Config) NewRequest(operation string, path string, params interface{},
 	request.Header.Set("Timestamp", strconv.FormatInt(timestamp, 10))
 	request.Header.Set("Lang", "en")
 	request.Header.Set("Content-Type", "application/json")
+
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return fmt.Errorf("failed to perform %s request to %s: %w", operation, url, err)
 	}
 
 	defer response.Body.Close()
+
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read the body of %s request to %s: %w", operation, url, err)

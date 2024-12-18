@@ -52,7 +52,8 @@ func (x *DevicesCommand) OutputAsTable(devices []foxess.Device) {
 	if x.FullOutput {
 		tbl = table.New("Device Serial Number", "Module Serial Number", "Station ID", "Station Name", "Status", "Has PV", "Has Battery", "Device Type", "Product Type")
 		for _, device := range devices {
-			tbl.AddRow(device.DeviceSerialNumber, device.ModuleSerialNumber, device.StationID, device.StationName, device.CurrentStatus(), device.HasPV, device.HasBattery, device.DeviceType, device.ProductType)
+			tbl.AddRow(device.DeviceSerialNumber, device.ModuleSerialNumber, device.StationID, device.StationName, device.CurrentStatus(), device.HasPV, device.HasBattery,
+				device.DeviceType, device.ProductType)
 		}
 	} else {
 		tbl = table.New("Device Serial Number", "Station Name", "Status", "Has PV", "Has Battery")

@@ -9,7 +9,7 @@ import (
 )
 
 type APIUsageCommand struct {
-	Format string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
+	Format string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json"`
 }
 
 func (x *APIUsageCommand) Register(parser *flags.Parser) {

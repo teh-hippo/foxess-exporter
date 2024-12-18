@@ -10,8 +10,8 @@ import (
 
 type RealTimeCommand struct {
 	Inverters []string `short:"i" long:"inverter" description:"Inverter serial numbers." required:"true"`
-	Variables []string `short:"p" long:"variable" description:"Variables to retrieve" required:"false"`
-	Format    string   `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
+	Variables []string `short:"p" long:"variable" description:"Variables to retrieve"`
+	Format    string   `short:"o" long:"output"   description:"Output format"            default:"table" choices:"table,json"`
 }
 
 func (x *RealTimeCommand) Register(parser *flags.Parser) {

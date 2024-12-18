@@ -10,8 +10,8 @@ import (
 )
 
 type DevicesCommand struct {
-	FullOutput bool   `short:"f" long:"full" description:"Show all columns in the output" required:"false"`
-	Format     string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
+	FullOutput bool   `short:"f" long:"full"   description:"Show all columns in the output"`
+	Format     string `short:"o" long:"output" description:"Output format"                  default:"table" choices:"table,json"`
 }
 
 func (x *DevicesCommand) Register(parser *flags.Parser) {

@@ -14,12 +14,12 @@ import (
 )
 
 type ServeCommand struct {
-	Port             int             `short:"p" long:"port" description:"Port to listen on" default:"2112" required:"true" env:"PORT"`
-	Inverters        map[string]bool `short:"i" long:"inverter" description:"Inverter serial numbers" env:"INVERTERS" env-delim:","`
-	Variables        []string        `short:"V" long:"variable" description:"Variables to retrieve" env:"VARIABLES" env-delim:","`
-	RealTimeInterval time.Duration   `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data." env:"REAL_TIME_INTERVAL" default:"3m" required:"true"`
-	StatusInterval   time.Duration   `short:"S" long:"status-interval" description:"Frequency of updating the status of devices." env:"STATUS_INTERVAL" default:"15m" required:"true"`
-	Verbose          bool            `short:"v" long:"verbose" description:"Enable verbose logging." env:"VERBOSE"`
+	Port             int             `short:"p" long:"port"              description:"Port to listen on"                            env:"PORT"               required:"true" default:"2112"`
+	Inverters        map[string]bool `short:"i" long:"inverter"          description:"Inverter serial numbers"                      env:"INVERTERS"          env-delim:""`
+	Variables        []string        `short:"V" long:"variable"          description:"Variables to retrieve"                        env:"VARIABLES"          env-delim:""`
+	RealTimeInterval time.Duration   `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data."        env:"REAL_TIME_INTERVAL" required:"true" default:"3m"`
+	StatusInterval   time.Duration   `short:"S" long:"status-interval"   description:"Frequency of updating the status of devices." env:"STATUS_INTERVAL"    required:"true" default:"15m"`
+	Verbose          bool            `short:"v" long:"verbose"           description:"Enable verbose logging."                      env:"VERBOSE"`
 }
 
 var (

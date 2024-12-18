@@ -7,9 +7,7 @@ import (
 	"github.com/teh-hippo/foxess-exporter/foxess"
 )
 
-var (
-	foxessAPI foxess.FoxessAPI
-)
+var foxessAPI foxess.FoxessAPI
 
 type Runner interface {
 	Register(parser *flags.Parser)

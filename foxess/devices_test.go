@@ -15,8 +15,8 @@ func TestCurrentStatus(t *testing.T) {
 		assert.Equal(t, expected, testDevice.CurrentStatus())
 	}
 
-	testStatus(DEVICES_STATUS_ONLINE, "Online")
-	testStatus(DEVICES_STATUS_FAULT, "Fault")
-	testStatus(DEVICES_STATUS_OFFLINE, "Offline")
-	testStatus(DEVICES_STATUS_OFFLINE+1, "Unknown:4")
+	testStatus(StatusOnline, "Online")
+	testStatus(StatusFault, "Fault")
+	testStatus(StatusOffline, "Offline")
+	testStatus(StatusOffline+1, "Unknown:4")
 }

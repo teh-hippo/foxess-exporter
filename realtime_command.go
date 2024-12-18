@@ -27,7 +27,7 @@ func (x *RealTimeCommand) Execute(_ []string) error {
 	}
 
 	switch x.Format {
-	case "table":
+	case FormatTable:
 		tbl := table.New("Device", "Time", "Variable", "Name", "Unit", "Value")
 
 		for _, item := range data {
@@ -37,9 +37,10 @@ func (x *RealTimeCommand) Execute(_ []string) error {
 		}
 
 		tbl.Print()
+
 		return nil
-	case "json":
-		err := util.JsonToStdOut(data)
+	case FormatJSON:
+		err := util.JSONToStdOut(data)
 		if err != nil {
 			return fmt.Errorf("unable to output JSON: %w", err)
 		}

@@ -10,7 +10,9 @@ import (
 
 func TestApiUsageWontExceedAllowance(t *testing.T) {
 	t.Parallel()
+
 	const longDelay time.Duration = 9999 * time.Minute
+
 	serveCommand := ServeCommand{}
 
 	// Defaults
@@ -34,9 +36,12 @@ func TestApiUsageWontExceedAllowance(t *testing.T) {
 
 func TestUpdateIntervalsAreClamped(t *testing.T) {
 	t.Parallel()
+
+	const (
+		overConfig  time.Duration = 61 * time.Second
+		underConfig time.Duration = 59 * time.Second
+	)
 	serveCommand := ServeCommand{}
-	const overConfig time.Duration = 61 * time.Second
-	const underConfig time.Duration = 59 * time.Second
 
 	// RealTimeInterval
 	serveCommand.RealTimeInterval = underConfig
@@ -55,9 +60,12 @@ func TestUpdateIntervalsAreClamped(t *testing.T) {
 
 func TestIncludeWithInverters(t *testing.T) {
 	t.Parallel()
+
+	const (
+		id1 = "1"
+		id2 = "2"
+	)
 	serveCommand := ServeCommand{}
-	const id1 = "1"
-	const id2 = "2"
 	serveCommand.Inverters = map[string]bool{
 		id1: true,
 	}
@@ -67,10 +75,15 @@ func TestIncludeWithInverters(t *testing.T) {
 
 func TestIncludeWithoutInverters(t *testing.T) {
 	t.Parallel()
-	serveCommand := ServeCommand{}
-	const id1 = "1"
-	const id2 = "2"
-	serveCommand.Inverters = map[string]bool{}
+
+	const (
+		id1 = "1"
+		id2 = "2"
+	)
+	serveCommand := ServeCommand{
+		Inverters: map[string]bool{},
+	}
+
 	assert.True(t, serveCommand.Include(id1))
 	assert.True(t, serveCommand.Include(id2))
 }

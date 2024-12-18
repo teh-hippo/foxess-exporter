@@ -15,7 +15,7 @@ import (
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
-type FoxessAPI struct {
+type Config struct {
 	APIKey string `short:"k" long:"api-key" description:"FoxESS API Key"      env:"API_KEY" required:"true"`
 	Debug  bool   `short:"d" long:"debug"   description:"Enable debug output" env:"DEBUG"`
 }
@@ -36,41 +36,44 @@ func isError(errorNumber int, message string) error {
 	if errorNumber != 0 {
 		return fmt.Errorf("error response from foxess: %d - %s", errorNumber, message)
 	}
+
 	return nil
 }
 
 func (t *CustomTime) UnmarshalJSON(b []byte) error {
-	value := string(b)
 	const format string = `"2006-01-02 15:04:05 MST-0700"`
+
+	value := string(b)
 	date, err := time.Parse(format, value)
 	if err != nil {
 		return fmt.Errorf("failed to parse '%s' as date of format '%s': %w", value, format, err)
 	}
 	t.Time = date
+
 	return nil
 }
 
-func (t *NumberAsNil) UnmarshalJSON(b []byte) error {
-	if len(b) >= 2 && b[0] == '"' {
-		b = b[1 : len(b)-1]
-		if len(b) == 0 {
+func (t *NumberAsNil) UnmarshalJSON(data []byte) error {
+	if len(data) >= 2 && data[0] == '"' {
+		data = data[1 : len(data)-1]
+		if len(data) == 0 {
 			return nil
 		}
 	}
 
-	if err := json.Unmarshal(b, &t.Number); err != nil {
-		return fmt.Errorf("failed to parse '%s': %w", b, err)
+	if err := json.Unmarshal(data, &t.Number); err != nil {
+		return fmt.Errorf("failed to parse '%s': %w", data, err)
 	}
 
 	return nil
 }
 
 func CalculateSignature(path string, apiKey string, timestamp int64) string {
-	term := []byte(path + "\\r\\n" + apiKey + "\\r\\n" + fmt.Sprint(timestamp))
+	term := []byte(path + "\\r\\n" + apiKey + "\\r\\n" + strconv.FormatInt(timestamp, 10))
 	return fmt.Sprintf("%x", md5.Sum(term))
 }
 
-func (api *FoxessAPI) NewRequest(operation string, path string, params interface{}, result interface{}) error {
+func (api *Config) NewRequest(operation string, path string, params interface{}, result interface{}) error {
 	url := "https://www.foxesscloud.com" + path
 	timestamp := time.Now().UnixMilli()
 	signature := CalculateSignature(path, api.APIKey, timestamp)

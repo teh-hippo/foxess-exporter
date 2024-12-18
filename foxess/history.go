@@ -28,7 +28,7 @@ type VariableHistory struct {
 	Variable   string      `json:"variable"`
 }
 
-func (api *FoxessAPI) GetVariableHistory(inverter string, begin, end int64, variables []string) ([]VariableHistory, error) {
+func (api *Config) GetVariableHistory(inverter string, begin, end int64, variables []string) ([]VariableHistory, error) {
 	request := &HistoryRequest{
 		Begin:        begin,
 		End:          end,
@@ -38,6 +38,7 @@ func (api *FoxessAPI) GetVariableHistory(inverter string, begin, end int64, vari
 
 	response := &HistoryResponse{}
 	err := api.NewRequest("POST", "/op/v0/device/history/query", request, response)
+
 	if err != nil {
 		return nil, err
 	} else if err = isError(response.ErrorNumber, response.Message); err != nil {
@@ -48,5 +49,6 @@ func (api *FoxessAPI) GetVariableHistory(inverter string, begin, end int64, vari
 	for i, r := range response.Result {
 		result[i] = r.Variables[i]
 	}
+
 	return result, nil
 }

@@ -7,7 +7,12 @@ import (
 	"github.com/teh-hippo/foxess-exporter/foxess"
 )
 
-var foxessAPI foxess.FoxessAPI
+const (
+	FormatTable = "table"
+	FormatJSON  = "json"
+)
+
+var foxessAPI foxess.Config
 
 type Runner interface {
 	Register(parser *flags.Parser)

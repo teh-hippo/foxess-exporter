@@ -15,13 +15,15 @@ func ToReader(v interface{}) (io.Reader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal struct: %v %w", v, err)
 	}
+
 	return bytes.NewReader(data), nil
 }
 
-func Pluralise(len int) string {
-	if len == 1 {
+func Pluralise(length int) string {
+	if length == 1 {
 		return ""
 	}
+
 	return "s"
 }
 
@@ -39,21 +41,24 @@ func FromFile(fileName string) ([]byte, error) {
 	}
 
 	log.Printf("Read file: %s\n", fileName)
+
 	return contents, nil
 }
 
-func JsonToStdOut(v any) error {
+func JSONToStdOut(v any) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
+
 	return enc.Encode(v)
 }
 
-func Clamp(value time.Duration, min time.Duration, max time.Duration) time.Duration {
-	if value < min {
-		return min
-	} else if value > max {
-		return max
+func Clamp(value time.Duration, minLimit time.Duration, maxLimit time.Duration) time.Duration {
+	if value < minLimit {
+		return minLimit
+	} else if value > maxLimit {
+		return maxLimit
 	}
+
 	return value
 }
 

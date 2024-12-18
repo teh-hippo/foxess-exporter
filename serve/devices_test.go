@@ -8,10 +8,12 @@ import (
 
 func TestCanSet(t *testing.T) {
 	t.Parallel()
-	subject := NewDeviceCache()
-	const id1 = "1"
-	const id2 = "2"
 
+	const (
+		id1 = "1"
+		id2 = "2"
+	)
+	subject := NewDeviceCache()
 	expected1 := []string{id1, id2}
 
 	subject.Set(expected1)

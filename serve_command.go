@@ -14,17 +14,17 @@ import (
 )
 
 type ServeCommand struct {
-	Port             int             `short:"p" long:"port"              description:"Port to listen on"                            env:"PORT"               required:"true" default:"2112"`
-	Inverters        map[string]bool `short:"i" long:"inverter"          description:"Inverter serial numbers"                      env:"INVERTERS"          env-delim:""`
-	Variables        []string        `short:"V" long:"variable"          description:"Variables to retrieve"                        env:"VARIABLES"          env-delim:""`
-	RealTimeInterval time.Duration   `short:"R" long:"realtime-interval" description:"Frequency of updating real-time data."        env:"REAL_TIME_INTERVAL" required:"true" default:"3m"`
-	StatusInterval   time.Duration   `short:"S" long:"status-interval"   description:"Frequency of updating the status of devices." env:"STATUS_INTERVAL"    required:"true" default:"15m"`
-	Verbose          bool            `short:"v" long:"verbose"           description:"Enable verbose logging."                      env:"VERBOSE"`
+	Port             int             `short:"p" long:"port"              description:"Port to listen on"                  env:"PORT"               required:"true" default:"2112"`
+	Inverters        map[string]bool `short:"i" long:"inverter"          description:"Inverter serial numbers"            env:"INVERTERS"          env-delim:""`
+	Variables        []string        `short:"V" long:"variable"          description:"Variables to retrieve"              env:"VARIABLES"          env-delim:""`
+	RealTimeInterval time.Duration   `short:"R" long:"realtime-interval" description:"Update frequency of real-time data" env:"REAL_TIME_INTERVAL" required:"true" default:"3m"`
+	StatusInterval   time.Duration   `short:"S" long:"status-interval"   description:"Update frequency of devices status" env:"STATUS_INTERVAL"    required:"true" default:"15m"`
+	Verbose          bool            `short:"v" long:"verbose"           description:"Enable verbose logging"             env:"VERBOSE"`
 }
 
 var (
 	deviceCache serve.DeviceCache
-	apiCache    serve.ApiQuota
+	apiCache    serve.APIQuota
 	metrics     serve.Metrics
 )
 
@@ -32,8 +32,9 @@ func (x *ServeCommand) Register(parser *flags.Parser) {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", x); err != nil {
 		panic(err)
 	}
+
 	deviceCache = *serve.NewDeviceCache()
-	apiCache = *serve.NewApiCache()
+	apiCache = *serve.NewAPIQuota()
 	metrics = *serve.NewMetrics()
 }
 
@@ -47,9 +48,11 @@ func (x *ServeCommand) validateIntervals() error {
 	apiCallsPerDay -= float64(realTimeCalls)
 	statusCalls := oneDay / x.StatusInterval
 	apiCallsPerDay -= float64(statusCalls)
+
 	if apiCallsPerDay < 0 {
 		return errors.New("current intervals would result in API usage exceeding the maximum daily allowance")
 	}
+
 	return nil
 }
 
@@ -59,6 +62,7 @@ func (x *ServeCommand) Execute(_ []string) error {
 		for deviceID := range x.Inverters {
 			ids = append(ids, deviceID)
 		}
+
 		deviceCache.Set(ids)
 	}
 
@@ -86,12 +90,15 @@ func (x *ServeCommand) updateAPIQuota() {
 
 func (x *ServeCommand) updateDeviceStatus() {
 	x.verbose("Retrieving device status")
+
 	devices, err := foxessAPI.GetDeviceList()
+
 	if err != nil {
 		fmt.Printf("Unable to update device list: %v", err)
 	} else {
 		metrics.UpdateStatus(devices, x.Include)
 		hasFilter := len(x.Inverters) > 0
+
 		if !hasFilter {
 			ids := make([]string, len(devices))
 			for i, device := range devices {

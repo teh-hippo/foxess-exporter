@@ -10,9 +10,9 @@ type DeviceListRequest struct {
 }
 
 const (
-	DEVICES_STATUS_ONLINE = iota + 1
-	DEVICES_STATUS_FAULT
-	DEVICES_STATUS_OFFLINE
+	StatusOnline = iota + 1
+	StatusFault
+	StatusOffline
 )
 
 type DeviceListResponse struct {
@@ -28,7 +28,7 @@ type DeviceListResponse struct {
 type Device struct {
 	DeviceSerialNumber string `json:"deviceSN"`
 	ModuleSerialNumber string `json:"moduleSN"`
-	StationId          string `json:"stationId"`
+	StationID          string `json:"stationId"`
 	StationName        string `json:"stationName"`
 	Status             int    `json:"status"`
 	HasPV              bool   `json:"hasPV"`
@@ -37,16 +37,18 @@ type Device struct {
 	ProductType        string `json:"productType"`
 }
 
-func (api *FoxessAPI) GetDeviceList() ([]Device, error) {
+func (api *Config) GetDeviceList() ([]Device, error) {
 	currentPage := 1
 	total := 1
 	devices := make([]Device, 0)
+
 	for len(devices) < total {
 		request := &DeviceListRequest{
 			CurrentPage: currentPage,
 			PageSize:    PageSize,
 		}
 		response := &DeviceListResponse{}
+
 		if err := api.NewRequest("POST", "/op/v0/device/list", request, response); err != nil {
 			return nil, err
 		} else if err = isError(response.ErrorNumber, ""); err != nil {
@@ -55,7 +57,7 @@ func (api *FoxessAPI) GetDeviceList() ([]Device, error) {
 
 		devices = append(devices, response.Result.Devices...)
 		total = response.Result.Total
-		currentPage += 1
+		currentPage++
 	}
 
 	return devices, nil
@@ -63,11 +65,11 @@ func (api *FoxessAPI) GetDeviceList() ([]Device, error) {
 
 func (d *Device) CurrentStatus() string {
 	switch d.Status {
-	case DEVICES_STATUS_ONLINE:
+	case StatusOnline:
 		return "Online"
-	case DEVICES_STATUS_FAULT:
+	case StatusFault:
 		return "Fault"
-	case DEVICES_STATUS_OFFLINE:
+	case StatusOffline:
 		return "Offline"
 	default:
 		return fmt.Sprint("Unknown:", d.Status)

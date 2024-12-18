@@ -2,6 +2,11 @@ run:
   timeout: 5m
 linters:
   enable-all: true
+  disable:
+    - depguard
+    - err113
+    - exhaustruct
+    - testpackage
 
 linters-settings:
   lll:

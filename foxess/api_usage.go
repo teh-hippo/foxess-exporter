@@ -21,7 +21,7 @@ type APIUsage struct {
 
 const PERCENT = 100
 
-func (api *FoxessAPI) GetAPIUsage() (*APIUsage, error) {
+func (api *Config) GetAPIUsage() (*APIUsage, error) {
 	response := &AccessCountResponse{}
 	err := api.NewRequest("GET", "/op/v0/user/getAccessCount", nil, response)
 	if err != nil {
@@ -43,6 +43,7 @@ func (api *FoxessAPI) GetAPIUsage() (*APIUsage, error) {
 	}
 
 	percentage := (total - remaining) / total * PERCENT
+
 	return &APIUsage{
 		Total:          total,
 		Remaining:      remaining,

@@ -27,6 +27,7 @@ func (api *Config) GetVariables(gridOnly bool) (*[]map[string]Variable, error) {
 	}
 
 	gridOnlyVariables := make([]map[string]Variable, 0)
+
 	for _, variable := range response.Result {
 		for key := range maps.Keys(variable) {
 			item := variable[key]

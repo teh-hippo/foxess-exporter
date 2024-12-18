@@ -31,6 +31,7 @@ func NewMetrics() *Metrics {
 	}
 	metrics.Registry.MustRegister(metrics.status)
 	metrics.Registry.MustRegister(metrics.realtime)
+
 	return metrics
 }
 

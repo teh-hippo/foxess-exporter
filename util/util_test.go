@@ -15,6 +15,7 @@ type DummyRequest struct {
 
 func TestToReader(t *testing.T) {
 	t.Parallel()
+
 	want := []byte("{\"sn\":\"1234567890\"}")
 	result, err := ToReader(&DummyRequest{SerialNumber: "1234567890"})
 	if err != nil {

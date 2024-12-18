@@ -11,7 +11,8 @@ type DeviceCache struct {
 
 func NewDeviceCache() *DeviceCache {
 	return &DeviceCache{
-		cond: sync.NewCond(&sync.Mutex{}),
+		cond:      sync.NewCond(&sync.Mutex{}),
+		DeviceIDs: nil,
 	}
 }
 

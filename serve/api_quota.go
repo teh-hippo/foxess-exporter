@@ -13,7 +13,8 @@ type APIQuota struct {
 
 func NewAPIQuota() *APIQuota {
 	return &APIQuota{
-		cond: sync.NewCond(&sync.Mutex{}),
+		cond:  sync.NewCond(&sync.Mutex{}),
+		value: nil,
 	}
 }
 

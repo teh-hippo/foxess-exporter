@@ -25,7 +25,7 @@ type ServeCommand struct {
 	StatusInterval   time.Duration   `short:"S" long:"status-interval"   description:"Update frequency of devices status" env:"STATUS_INTERVAL"    required:"true" default:"15m"`
 	Verbose          bool            `short:"v" long:"verbose"           description:"Enable verbose logging"             env:"VERBOSE"`
 	deviceCache      *serve.DeviceCache
-	apiCache         *serve.APIQuota
+	apiQuota         *serve.APIQuota
 	metrics          *serve.Metrics
 	config           *foxess.Config
 }
@@ -37,7 +37,7 @@ func (x *ServeCommand) Register(parser *flags.Parser, config *foxess.Config) {
 
 	x.config = config
 	x.deviceCache = serve.NewDeviceCache()
-	x.apiCache = serve.NewAPIQuota()
+	x.apiQuota = serve.NewAPIQuota()
 	x.metrics = serve.NewMetrics()
 }
 
@@ -73,10 +73,12 @@ func (x *ServeCommand) Execute(_ []string) error {
 	x.run(x.StatusInterval, true, x.updateDeviceStatus)
 	x.run(x.RealTimeInterval, true, x.updateRealTimeMetrics)
 
-	http.Handle("/metrics", promhttp.HandlerFor(x.metrics.Registry, promhttp.HandlerOpts{}))
+	http.Handle("/metrics", promhttp.HandlerFor(x.metrics.Registry, promhttp.HandlerOpts{ //nolint:exhaustruct
+		ErrorLog: log.Default(),
+	}))
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
 
-	server := &http.Server{Addr: ":" + strconv.Itoa(x.Port), ReadHeaderTimeout: Ten * time.Second}
+	server := &http.Server{Addr: ":" + strconv.Itoa(x.Port), ReadHeaderTimeout: Ten * time.Second} //nolint:exhaustruct
 
 	err := server.ListenAndServe()
 	if err != nil {
@@ -92,7 +94,7 @@ func (x *ServeCommand) updateAPIQuota() {
 		log.Printf("failed to update API usage: %v", err)
 	} else {
 		x.verbose("Updating API usage")
-		x.apiCache.Set(apiUsage)
+		x.apiQuota.Set(apiUsage)
 		log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Total-apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
 	}
 }
@@ -133,7 +135,7 @@ func (x *ServeCommand) updateRealTimeMetrics() {
 func (x *ServeCommand) run(interval time.Duration, checkAPI bool, execute func()) {
 	go func() {
 		for {
-			if !checkAPI || x.apiCache.IsQuotaAvailable() {
+			if !checkAPI || x.apiQuota.IsQuotaAvailable() {
 				execute()
 			}
 

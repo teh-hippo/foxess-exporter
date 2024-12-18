@@ -5,9 +5,7 @@ linters:
   disable:
     - depguard
     - err113
-    - exhaustruct
     - tagliatelle
-    - exportloopref
 
 linters-settings:
   lll:

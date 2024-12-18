@@ -14,7 +14,9 @@ func TestQuotaAvailable(t *testing.T) {
 	subject := serve.NewAPIQuota()
 	assertThat := func(remaining float64, expected bool) {
 		subject.Set(&foxess.APIUsage{
-			Remaining: remaining,
+			Remaining:      remaining,
+			Total:          1,
+			PercentageUsed: 0,
 		})
 		assert.Equal(t, expected, subject.IsQuotaAvailable())
 	}

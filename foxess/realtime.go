@@ -25,12 +25,10 @@ type RealTimeData struct {
 func (api *Config) GetRealTimeData(inverters, variables []string) ([]RealTimeData, error) {
 	request := &RealTimeRequest{
 		SerialNumbers: inverters,
-	}
-	if variables != nil {
-		request.Variables = variables
+		Variables:     variables,
 	}
 
-	response := &RealTimeResponse{}
+	response := &RealTimeResponse{} //nolint:exhaustruct
 	if err := api.NewRequest("POST", "/op/v1/device/real/query", request, response); err != nil {
 		return nil, err
 	} else if err = isError(response.ErrorNumber, response.Message); err != nil {

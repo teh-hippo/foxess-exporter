@@ -19,12 +19,18 @@ type Metrics struct {
 func NewMetrics() *Metrics {
 	metrics := &Metrics{
 		status: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "foxess_device_status",
-			Help: "Status of the inverter.",
+			Namespace:   "",
+			Subsystem:   "",
+			Name:        "foxess_device_status",
+			Help:        "Status of the inverter.",
+			ConstLabels: prometheus.Labels{},
 		}, []string{"inverter"}),
 		realtime: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "foxess_realtime_data",
-			Help: "Data from the FoxESS platform.",
+			Namespace:   "",
+			Subsystem:   "",
+			Name:        "foxess_realtime_data",
+			Help:        "Data from the FoxESS platform.",
+			ConstLabels: prometheus.Labels{},
 		}, []string{"inverter", "variable"}),
 		lastUpdatedTime: make(map[string]time.Time),
 		Registry:        prometheus.NewRegistry(),

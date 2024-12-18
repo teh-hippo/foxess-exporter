@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 
 	"github.com/jessevdk/go-flags"
@@ -34,15 +35,15 @@ func main() {
 	}
 
 	if _, err := parser.Parse(); err != nil {
-		switch flagsErr := err.(type) {
-		case flags.ErrorType:
-			if flagsErr == flags.ErrHelp {
-				os.Exit(0)
+		var flagsErr *flags.Error
+		if errors.As(err, &flagsErr) {
+			if flagsErr.Type == flags.ErrCommandRequired {
+				parser.WriteHelp(os.Stdout)
+			} else if flagsErr.Type == flags.ErrHelp {
+				return
 			}
-
-			os.Exit(1)
-		default:
-			os.Exit(1)
 		}
+
+		os.Exit(1)
 	}
 }

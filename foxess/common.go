@@ -119,19 +119,27 @@ func (api *Config) NewRequest(operation, path string, params, result interface{}
 		return fmt.Errorf("failed to read the body of %s request to %s: %w", operation, url, err)
 	}
 
+	if err := api.parse(operationName, timestamp, data, result); err != nil {
+		return fmt.Errorf("failed to parse response from %s: %w", operationName, err)
+	}
+
+	return nil
+}
+
+func (api *Config) parse(operationName string, timestamp int64, data []byte, result interface{}) error {
 	if api.Debug {
-		err = util.ToFile(fmt.Sprintf("debug-%s-%d.json", operationName, timestamp), data)
+		err := util.ToFile(fmt.Sprintf("debug-%s-%d.json", operationName, timestamp), data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
 		}
 	}
 
-	if err = json.Unmarshal(data, result); err != nil {
-		return fmt.Errorf("failed to unmarshal response from %s request to %s: %w", operation, url, err)
+	if err := json.Unmarshal(data, result); err != nil {
+		return fmt.Errorf("failed to unmarshal response from %s: %w", operationName, err)
 	}
 
 	if api.Debug {
-		if err = util.ToFile(fmt.Sprintf("debug-%s-%d-marshalled.json", operationName, timestamp), data); err != nil {
+		if err := util.ToFile(fmt.Sprintf("debug-%s-%d-marshalled.json", operationName, timestamp), data); err != nil {
 			// Output the error, but continue with the result.
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
 		}

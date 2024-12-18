@@ -13,6 +13,7 @@ func TestCanSet(t *testing.T) {
 		id1 = "1"
 		id2 = "2"
 	)
+
 	subject := NewDeviceCache()
 	expected1 := []string{id1, id2}
 

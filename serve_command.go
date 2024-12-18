@@ -74,6 +74,7 @@ func (x *ServeCommand) Execute(_ []string) error {
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
 
 	server := &http.Server{Addr: ":" + fmt.Sprint(x.Port), ReadHeaderTimeout: 3 * time.Second}
+
 	return server.ListenAndServe()
 }
 
@@ -112,6 +113,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 
 func (x *ServeCommand) updateRealTimeMetrics() {
 	x.verbose("Retrieving latest real-time data")
+
 	data, err := foxessAPI.GetRealTimeData(deviceCache.Get(), x.Variables)
 	if err != nil {
 		fmt.Printf("Unable to retrieve latest real-time data: %v", err)

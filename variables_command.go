@@ -38,6 +38,7 @@ func (x *VariablesCommand) Execute(_ []string) error {
 		}
 
 		tbl.Print()
+
 		return nil
 	case FormatJSON:
 		err := util.JSONToStdOut(variables)

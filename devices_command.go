@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jessevdk/go-flags"
@@ -22,7 +23,7 @@ func (x *DevicesCommand) Register(parser *flags.Parser) {
 
 func (x *DevicesCommand) Execute(_ []string) error {
 	if x.Format == "json" && x.FullOutput {
-		return fmt.Errorf("full output is not supported for JSON format")
+		return errors.New("full output is not supported for JSON format")
 	}
 
 	devices, err := foxessAPI.GetDeviceList()

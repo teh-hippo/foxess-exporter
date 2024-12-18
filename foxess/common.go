@@ -48,6 +48,7 @@ func (t *CustomTime) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse '%s' as date of format '%s': %w", value, format, err)
 	}
+
 	t.Time = date
 
 	return nil
@@ -79,6 +80,7 @@ func (api *Config) NewRequest(operation string, path string, params interface{},
 	signature := CalculateSignature(path, api.APIKey, timestamp)
 	operationParts := strings.Split(operation, "/")
 	operationName := operationParts[int(math.Max(0, float64(len(operationParts)-1)))]
+
 	var (
 		body io.Reader
 		err  error
@@ -129,5 +131,6 @@ func (api *Config) NewRequest(operation string, path string, params interface{},
 			fmt.Fprintf(os.Stderr, "error writing json: %v\n", err)
 		}
 	}
+
 	return nil
 }

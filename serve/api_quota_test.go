@@ -9,6 +9,7 @@ import (
 
 func TestQuotaAvailable(t *testing.T) {
 	t.Parallel()
+
 	subject := NewAPIQuota()
 	assertThat := func(remaining float64, expected bool) {
 		subject.Set(&foxess.APIUsage{

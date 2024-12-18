@@ -8,6 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	overConfig  time.Duration = 61 * time.Second
+	underConfig time.Duration = 59 * time.Second
+)
+
 func TestApiUsageWontExceedAllowance(t *testing.T) {
 	t.Parallel()
 
@@ -34,25 +39,25 @@ func TestApiUsageWontExceedAllowance(t *testing.T) {
 	require.Error(t, actual)
 }
 
-func TestUpdateIntervalsAreClamped(t *testing.T) {
+func TestRealTimeIntervalIsClamped(t *testing.T) {
 	t.Parallel()
 
-	const (
-		overConfig  time.Duration = 61 * time.Second
-		underConfig time.Duration = 59 * time.Second
-	)
-	serveCommand := ServeCommand{}
-
-	// RealTimeInterval
-	serveCommand.RealTimeInterval = underConfig
-	serveCommand.StatusInterval = overConfig
+	serveCommand := ServeCommand{
+		RealTimeInterval: underConfig,
+		StatusInterval:   overConfig,
+	}
 	require.Error(t, serveCommand.validateIntervals())
 	assert.Equal(t, time.Minute, serveCommand.RealTimeInterval)
 	assert.Equal(t, overConfig, serveCommand.StatusInterval)
+}
 
-	// StatusInterval
-	serveCommand.RealTimeInterval = overConfig
-	serveCommand.StatusInterval = underConfig
+func TestStatusIntervalIsClamped(t *testing.T) {
+	t.Parallel()
+
+	serveCommand := ServeCommand{
+		RealTimeInterval: overConfig,
+		StatusInterval:   underConfig,
+	}
 	require.Error(t, serveCommand.validateIntervals())
 	assert.Equal(t, overConfig, serveCommand.RealTimeInterval)
 	assert.Equal(t, time.Minute, serveCommand.StatusInterval)
@@ -65,9 +70,9 @@ func TestIncludeWithInverters(t *testing.T) {
 		id1 = "1"
 		id2 = "2"
 	)
-	serveCommand := ServeCommand{}
-	serveCommand.Inverters = map[string]bool{
-		id1: true,
+
+	serveCommand := ServeCommand{
+		Inverters: map[string]bool{id1: true},
 	}
 	assert.True(t, serveCommand.Include(id1))
 	assert.False(t, serveCommand.Include(id2))
@@ -80,6 +85,7 @@ func TestIncludeWithoutInverters(t *testing.T) {
 		id1 = "1"
 		id2 = "2"
 	)
+
 	serveCommand := ServeCommand{
 		Inverters: map[string]bool{},
 	}

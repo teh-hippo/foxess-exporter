@@ -47,7 +47,7 @@ func (api *Config) GetDeviceList() ([]Device, error) {
 			CurrentPage: currentPage,
 			PageSize:    PageSize,
 		}
-		response := &DeviceListResponse{}
+		response := &DeviceListResponse{} //nolint:exhaustruct
 
 		if err := api.NewRequest("POST", "/op/v0/device/list", request, response); err != nil {
 			return nil, err

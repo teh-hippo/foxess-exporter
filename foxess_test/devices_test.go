@@ -12,7 +12,15 @@ func TestCurrentStatus(t *testing.T) {
 
 	testStatus := func(status int, expected string) {
 		testDevice := &foxess.Device{
-			Status: status,
+			Status:             status,
+			DeviceSerialNumber: "1234567890",
+			ModuleSerialNumber: "0987654321",
+			StationID:          "1234567890",
+			StationName:        "Test Station",
+			HasPV:              true,
+			HasBattery:         true,
+			DeviceType:         "Test Device",
+			ProductType:        "Test Product",
 		}
 		assert.Equal(t, expected, testDevice.CurrentStatus())
 	}

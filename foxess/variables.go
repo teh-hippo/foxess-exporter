@@ -16,7 +16,7 @@ type Variable struct {
 }
 
 func (api *Config) GetVariables(gridOnly bool) (*[]map[string]Variable, error) {
-	response := &VariablesResponse{}
+	response := &VariablesResponse{} //nolint:exhaustruct
 
 	if err := api.NewRequest("GET", "/op/v0/device/variable/get", nil, response); err != nil {
 		return nil, err

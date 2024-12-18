@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/teh-hippo/foxess-exporter/foxess"
+	"github.com/teh-hippo/foxess-exporter/serve"
 )
 
 const (
@@ -18,7 +20,7 @@ func TestApiUsageWontExceedAllowance(t *testing.T) {
 
 	const longDelay time.Duration = 9999 * time.Minute
 
-	serveCommand := ServeCommand{}
+	serveCommand := buildSubject()
 
 	// Defaults
 	serveCommand.RealTimeInterval = 3 * time.Minute
@@ -42,10 +44,9 @@ func TestApiUsageWontExceedAllowance(t *testing.T) {
 func TestRealTimeIntervalIsClamped(t *testing.T) {
 	t.Parallel()
 
-	serveCommand := ServeCommand{
-		RealTimeInterval: underConfig,
-		StatusInterval:   overConfig,
-	}
+	serveCommand := buildSubject()
+	serveCommand.RealTimeInterval = underConfig
+	serveCommand.StatusInterval = overConfig
 	require.Error(t, serveCommand.validateIntervals())
 	assert.Equal(t, time.Minute, serveCommand.RealTimeInterval)
 	assert.Equal(t, overConfig, serveCommand.StatusInterval)
@@ -54,10 +55,9 @@ func TestRealTimeIntervalIsClamped(t *testing.T) {
 func TestStatusIntervalIsClamped(t *testing.T) {
 	t.Parallel()
 
-	serveCommand := ServeCommand{
-		RealTimeInterval: overConfig,
-		StatusInterval:   underConfig,
-	}
+	serveCommand := buildSubject()
+	serveCommand.RealTimeInterval = overConfig
+	serveCommand.StatusInterval = underConfig
 	require.Error(t, serveCommand.validateIntervals())
 	assert.Equal(t, overConfig, serveCommand.RealTimeInterval)
 	assert.Equal(t, time.Minute, serveCommand.StatusInterval)
@@ -71,11 +71,28 @@ func TestIncludeWithInverters(t *testing.T) {
 		id2 = "2"
 	)
 
-	serveCommand := ServeCommand{
-		Inverters: map[string]bool{id1: true},
-	}
+	serveCommand := buildSubject()
+	serveCommand.Inverters = map[string]bool{id1: true}
 	assert.True(t, serveCommand.Include(id1))
 	assert.False(t, serveCommand.Include(id2))
+}
+
+func buildSubject() *ServeCommand {
+	return &ServeCommand{
+		Inverters:   map[string]bool{},
+		deviceCache: serve.NewDeviceCache(),
+		apiQuota:    serve.NewAPIQuota(),
+		metrics:     serve.NewMetrics(),
+		config: &foxess.Config{
+			APIKey: "key",
+			Debug:  false,
+		},
+		Port:             1234,
+		Variables:        []string{},
+		RealTimeInterval: 5 * time.Minute,
+		StatusInterval:   10 * time.Minute,
+		Verbose:          false,
+	}
 }
 
 func TestIncludeWithoutInverters(t *testing.T) {
@@ -86,9 +103,7 @@ func TestIncludeWithoutInverters(t *testing.T) {
 		id2 = "2"
 	)
 
-	serveCommand := ServeCommand{
-		Inverters: map[string]bool{},
-	}
+	serveCommand := buildSubject()
 
 	assert.True(t, serveCommand.Include(id1))
 	assert.True(t, serveCommand.Include(id2))

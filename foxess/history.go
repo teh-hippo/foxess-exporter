@@ -36,7 +36,7 @@ func (api *Config) GetVariableHistory(inverter string, begin, end int64, variabl
 		Variables:    variables,
 	}
 
-	response := &HistoryResponse{}
+	response := &HistoryResponse{} //nolint:exhaustruct
 	err := api.NewRequest("POST", "/op/v0/device/history/query", request, response)
 
 	if err != nil {

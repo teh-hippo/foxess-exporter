@@ -18,15 +18,15 @@ type Runner interface {
 }
 
 func main() {
-	foxessAPI := foxess.Config{}
+	foxessAPI := foxess.Config{} //nolint:exhaustruct
 	parser := flags.NewParser(&foxessAPI, flags.Default)
 	commands := []Runner{
-		&APIUsageCommand{},
-		&DevicesCommand{},
-		&HistoryCommand{},
-		&RealTimeCommand{},
-		&ServeCommand{},
-		&VariablesCommand{},
+		&APIUsageCommand{},  //nolint:exhaustruct
+		&DevicesCommand{},   //nolint:exhaustruct
+		&HistoryCommand{},   //nolint:exhaustruct
+		&RealTimeCommand{},  //nolint:exhaustruct
+		&ServeCommand{},     //nolint:exhaustruct
+		&VariablesCommand{}, //nolint:exhaustruct
 	}
 
 	for _, command := range commands {

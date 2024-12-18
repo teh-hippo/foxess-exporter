@@ -22,7 +22,7 @@ type APIUsage struct {
 const PERCENT = 100
 
 func (api *Config) GetAPIUsage() (*APIUsage, error) {
-	response := &AccessCountResponse{}
+	response := &AccessCountResponse{} //nolint:exhaustruct
 
 	err := api.NewRequest("GET", "/op/v0/user/getAccessCount", nil, response)
 	if err != nil {

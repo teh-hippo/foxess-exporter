@@ -17,8 +17,8 @@ type HistoryResponse struct {
 }
 
 type DataPoint struct {
-	Time  CustomTime `json:"time"`
-	Value float64    `json:"value"`
+	Time  CustomTime  `json:"time"`
+	Value NumberAsNil `json:"value"`
 }
 
 type VariableHistory struct {
@@ -28,16 +28,14 @@ type VariableHistory struct {
 	Variable   string      `json:"variable"`
 }
 
-func (api *FoxessApi) GetVariableHistory(inverter string, begin, end int64, variables []string) ([]VariableHistory, error) {
+func (api *FoxessAPI) GetVariableHistory(inverter string, begin, end int64, variables []string) ([]VariableHistory, error) {
 	request := &HistoryRequest{
 		Begin:        begin,
 		End:          end,
 		SerialNumber: inverter,
+		Variables:    variables,
 	}
 
-	if variables != nil {
-		request.Variables = variables
-	}
 	response := &HistoryResponse{}
 	err := api.NewRequest("POST", "/op/v0/device/history/query", request, response)
 	if err != nil {

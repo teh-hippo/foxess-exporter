@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/jessevdk/go-flags"
 	"github.com/rodaine/table"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
@@ -13,14 +14,14 @@ type VariablesCommand struct {
 	Format   string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json" required:"false"`
 }
 
-func init() {
-	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieve FoxESS variables for use with history or real-time data.", &VariablesCommand{}); err != nil {
+func (x *VariablesCommand) Register(parser *flags.Parser) {
+	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieve FoxESS variables for use with history or real-time data.", x); err != nil {
 		panic(err)
 	}
 }
 
 func (x *VariablesCommand) Execute(_ []string) error {
-	variables, err := foxessApi.GetVariables(x.GridOnly)
+	variables, err := foxessAPI.GetVariables(x.GridOnly)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve variables: %w", err)
 	}

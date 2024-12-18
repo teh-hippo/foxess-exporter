@@ -8,11 +8,28 @@ import (
 )
 
 var (
-	foxessApi foxess.FoxessApi
-	parser    = flags.NewParser(&foxessApi, flags.Default)
+	foxessAPI foxess.FoxessAPI
 )
 
+type Runner interface {
+	Register(parser *flags.Parser)
+}
+
 func main() {
+	parser := flags.NewParser(&foxessAPI, flags.Default)
+	commands := []Runner{
+		&APIUsageCommand{},
+		&DevicesCommand{},
+		&HistoryCommand{},
+		&RealTimeCommand{},
+		&ServeCommand{},
+		&VariablesCommand{},
+	}
+
+	for _, command := range commands {
+		command.Register(parser)
+	}
+
 	if _, err := parser.Parse(); err != nil {
 		switch flagsErr := err.(type) {
 		case flags.ErrorType:

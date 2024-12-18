@@ -4,8 +4,7 @@ linters:
   enable-all: true
   disable:
     - exportloopref # Deprecated
-    - depguard
-    - tagliatelle
+    - depguard # Too detailed
 
 linters-settings:
   lll:
@@ -23,3 +22,9 @@ linters-settings:
       - "required"
       - "default"
       - "choices"
+
+issues:
+  exclude-rules:
+    - linters:
+        - tagliatelle
+      path: foxess/

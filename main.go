@@ -13,13 +13,12 @@ const (
 	FormatJSON  = "json"
 )
 
-var foxessAPI foxess.Config
-
 type Runner interface {
-	Register(parser *flags.Parser)
+	Register(parser *flags.Parser, config *foxess.Config)
 }
 
 func main() {
+	foxessAPI := foxess.Config{}
 	parser := flags.NewParser(&foxessAPI, flags.Default)
 	commands := []Runner{
 		&APIUsageCommand{},
@@ -31,7 +30,7 @@ func main() {
 	}
 
 	for _, command := range commands {
-		command.Register(parser)
+		command.Register(parser, &foxessAPI)
 	}
 
 	if _, err := parser.Parse(); err != nil {

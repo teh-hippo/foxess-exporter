@@ -5,21 +5,25 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/rodaine/table"
+	"github.com/teh-hippo/foxess-exporter/foxess"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type APIUsageCommand struct {
 	Format string `short:"o" long:"output" description:"Output format" default:"table" choices:"table,json"`
+	config *foxess.Config
 }
 
-func (x *APIUsageCommand) Register(parser *flags.Parser) {
+func (x *APIUsageCommand) Register(parser *flags.Parser, config *foxess.Config) {
 	if _, err := parser.AddCommand("api-usage", "Show FoxESS API usage", "Show FoxESS API usage", x); err != nil {
 		panic(err)
 	}
+
+	x.config = config
 }
 
 func (x *APIUsageCommand) Execute(_ []string) error {
-	apiUsage, err := foxessAPI.GetAPIUsage()
+	apiUsage, err := x.config.GetAPIUsage()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve the latest api usage: %w", err)
 	}

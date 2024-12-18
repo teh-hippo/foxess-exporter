@@ -10,6 +10,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/teh-hippo/foxess-exporter/foxess"
 	"github.com/teh-hippo/foxess-exporter/serve"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
@@ -26,13 +27,15 @@ type ServeCommand struct {
 	deviceCache      *serve.DeviceCache
 	apiCache         *serve.APIQuota
 	metrics          *serve.Metrics
+	config           *foxess.Config
 }
 
-func (x *ServeCommand) Register(parser *flags.Parser) {
+func (x *ServeCommand) Register(parser *flags.Parser, config *foxess.Config) {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", x); err != nil {
 		panic(err)
 	}
 
+	x.config = config
 	x.deviceCache = serve.NewDeviceCache()
 	x.apiCache = serve.NewAPIQuota()
 	x.metrics = serve.NewMetrics()
@@ -84,7 +87,7 @@ func (x *ServeCommand) Execute(_ []string) error {
 }
 
 func (x *ServeCommand) updateAPIQuota() {
-	apiUsage, err := foxessAPI.GetAPIUsage()
+	apiUsage, err := x.config.GetAPIUsage()
 	if err != nil {
 		log.Printf("failed to update API usage: %v", err)
 	} else {
@@ -97,7 +100,7 @@ func (x *ServeCommand) updateAPIQuota() {
 func (x *ServeCommand) updateDeviceStatus() {
 	x.verbose("Retrieving device status")
 
-	devices, err := foxessAPI.GetDeviceList()
+	devices, err := x.config.GetDeviceList()
 
 	if err != nil {
 		log.Printf("Unable to update device list: %v", err)
@@ -119,7 +122,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 func (x *ServeCommand) updateRealTimeMetrics() {
 	x.verbose("Retrieving latest real-time data")
 
-	data, err := foxessAPI.GetRealTimeData(x.deviceCache.Get(), x.Variables)
+	data, err := x.config.GetRealTimeData(x.deviceCache.Get(), x.Variables)
 	if err != nil {
 		log.Printf("Unable to retrieve latest real-time data: %v", err)
 	}

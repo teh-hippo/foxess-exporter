@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jessevdk/go-flags"
@@ -12,6 +13,8 @@ import (
 	"github.com/teh-hippo/foxess-exporter/serve"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
+
+const Ten = 10
 
 type ServeCommand struct {
 	Port             int             `short:"p" long:"port"              description:"Port to listen on"                  env:"PORT"               required:"true" default:"2112"`
@@ -63,14 +66,14 @@ func (x *ServeCommand) Execute(_ []string) error {
 		x.deviceCache.Set(ids)
 	}
 
-	x.run(10*time.Minute, false, x.updateAPIQuota)
+	x.run(Ten*time.Minute, false, x.updateAPIQuota)
 	x.run(x.StatusInterval, true, x.updateDeviceStatus)
 	x.run(x.RealTimeInterval, true, x.updateRealTimeMetrics)
 
 	http.Handle("/metrics", promhttp.HandlerFor(x.metrics.Registry, promhttp.HandlerOpts{}))
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
 
-	server := &http.Server{Addr: ":" + fmt.Sprint(x.Port), ReadHeaderTimeout: 3 * time.Second}
+	server := &http.Server{Addr: ":" + strconv.Itoa(x.Port), ReadHeaderTimeout: Ten * time.Second}
 
 	err := server.ListenAndServe()
 	if err != nil {
@@ -83,7 +86,7 @@ func (x *ServeCommand) Execute(_ []string) error {
 func (x *ServeCommand) updateAPIQuota() {
 	apiUsage, err := foxessAPI.GetAPIUsage()
 	if err != nil {
-		fmt.Printf("failed to update API usage: %v", err)
+		log.Printf("failed to update API usage: %v", err)
 	} else {
 		x.verbose("Updating API usage")
 		x.apiCache.Set(apiUsage)
@@ -97,7 +100,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 	devices, err := foxessAPI.GetDeviceList()
 
 	if err != nil {
-		fmt.Printf("Unable to update device list: %v", err)
+		log.Printf("Unable to update device list: %v", err)
 	} else {
 		x.metrics.UpdateStatus(devices, x.Include)
 		hasFilter := len(x.Inverters) > 0
@@ -118,7 +121,7 @@ func (x *ServeCommand) updateRealTimeMetrics() {
 
 	data, err := foxessAPI.GetRealTimeData(x.deviceCache.Get(), x.Variables)
 	if err != nil {
-		fmt.Printf("Unable to retrieve latest real-time data: %v", err)
+		log.Printf("Unable to retrieve latest real-time data: %v", err)
 	}
 
 	x.metrics.UpdateRealTime(data)

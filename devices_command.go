@@ -13,12 +13,15 @@ import (
 type DevicesCommand struct {
 	FullOutput bool   `short:"f" long:"full"   description:"Show all columns in the output"`
 	Format     string `short:"o" long:"output" description:"Output format"                  default:"table" choices:"table,json"`
+	config     *foxess.Config
 }
 
-func (x *DevicesCommand) Register(parser *flags.Parser) {
+func (x *DevicesCommand) Register(parser *flags.Parser, config *foxess.Config) {
 	if _, err := parser.AddCommand("devices", "List devices", "Obtains all devices the provided key has access to", x); err != nil {
 		panic(err)
 	}
+
+	x.config = config
 }
 
 func (x *DevicesCommand) Execute(_ []string) error {
@@ -26,7 +29,7 @@ func (x *DevicesCommand) Execute(_ []string) error {
 		return errors.New("full output is not supported for JSON format")
 	}
 
-	devices, err := foxessAPI.GetDeviceList()
+	devices, err := x.config.GetDeviceList()
 	if err != nil {
 		return fmt.Errorf("failed to retrieve device list: %w", err)
 	}

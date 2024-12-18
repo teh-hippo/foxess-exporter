@@ -5,6 +5,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/rodaine/table"
+	"github.com/teh-hippo/foxess-exporter/foxess"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
@@ -12,16 +13,19 @@ type RealTimeCommand struct {
 	Inverters []string `short:"i" long:"inverter" description:"Inverter serial numbers." required:"true"`
 	Variables []string `short:"p" long:"variable" description:"Variables to retrieve"`
 	Format    string   `short:"o" long:"output"   description:"Output format"            default:"table" choices:"table,json"`
+	config    *foxess.Config
 }
 
-func (x *RealTimeCommand) Register(parser *flags.Parser) {
+func (x *RealTimeCommand) Register(parser *flags.Parser, config *foxess.Config) {
 	if _, err := parser.AddCommand("realtime", "Get real-time data", "Get the current real-time data for an inverter.", x); err != nil {
 		panic(err)
 	}
+
+	x.config = config
 }
 
 func (x *RealTimeCommand) Execute(_ []string) error {
-	data, err := foxessAPI.GetRealTimeData(x.Inverters, x.Variables)
+	data, err := x.config.GetRealTimeData(x.Inverters, x.Variables)
 	if err != nil {
 		return fmt.Errorf("unable to retrieve real-time data from FoxESS: %w", err)
 	}

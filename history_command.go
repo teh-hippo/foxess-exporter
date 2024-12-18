@@ -17,12 +17,15 @@ type HistoryCommand struct {
 	End       int64    `short:"e" long:"end"      description:"End time for request in milliseconds"`
 	Variables []string `short:"V" long:"variable" description:"Variables to retrieve"`
 	Format    string   `short:"o" long:"output"   description:"Output format"                          default:"table" choices:"table,json"`
+	config    *foxess.Config
 }
 
-func (x *HistoryCommand) Register(parser *flags.Parser) {
+func (x *HistoryCommand) Register(parser *flags.Parser, config *foxess.Config) {
 	if _, err := parser.AddCommand("history", "Get the history", "Get the history of a variable", x); err != nil {
 		panic(err)
 	}
+
+	x.config = config
 }
 
 func (x *HistoryCommand) Execute(_ []string) error {
@@ -38,7 +41,7 @@ func (x *HistoryCommand) Execute(_ []string) error {
 		x.End = startOfDay.UnixMilli()
 	}
 
-	response, err := foxessAPI.GetVariableHistory(x.Inverter, x.Begin, x.End, x.Variables)
+	response, err := x.config.GetVariableHistory(x.Inverter, x.Begin, x.End, x.Variables)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve history for %s from %d -> %d: %w", x.Inverter, x.Begin, x.End, err)
 	}

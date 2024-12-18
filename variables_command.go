@@ -6,22 +6,26 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/rodaine/table"
+	"github.com/teh-hippo/foxess-exporter/foxess"
 	"github.com/teh-hippo/foxess-exporter/util"
 )
 
 type VariablesCommand struct {
 	GridOnly bool   `short:"g" long:"grid-only" description:"Only show variables related to a grid tied inverter"`
 	Format   string `short:"o" long:"output"    description:"Output format"                                       default:"table" choices:"table,json"`
+	config   *foxess.Config
 }
 
-func (x *VariablesCommand) Register(parser *flags.Parser) {
+func (x *VariablesCommand) Register(parser *flags.Parser, config *foxess.Config) {
 	if _, err := parser.AddCommand("variables", "List of supported variables", "Retrieve FoxESS variables for use with history or real-time data.", x); err != nil {
 		panic(err)
 	}
+
+	x.config = config
 }
 
 func (x *VariablesCommand) Execute(_ []string) error {
-	variables, err := foxessAPI.GetVariables(x.GridOnly)
+	variables, err := x.config.GetVariables(x.GridOnly)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve variables: %w", err)
 	}

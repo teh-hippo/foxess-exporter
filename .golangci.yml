@@ -8,7 +8,7 @@ linters:
     - exhaustruct
     - testpackage
     - tagliatelle
-    - go
+    - exportloopref
 
 linters-settings:
   lll:

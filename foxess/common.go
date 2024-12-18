@@ -92,7 +92,7 @@ func (api *Config) NewRequest(operation, path string, params, result interface{}
 	if params != nil {
 		body, err = util.ToReader(params)
 		if err != nil {
-			return fmt.Errorf("unable to transform params to a reader: %w", err)
+			return fmt.Errorf("unable to transform params for '%s' request to '%s' into a reader: %w", operation, path, err)
 		}
 	}
 

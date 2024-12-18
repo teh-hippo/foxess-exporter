@@ -132,13 +132,12 @@ func (x *ServeCommand) updateRealTimeMetrics() {
 
 func (x *ServeCommand) run(interval time.Duration, checkAPI bool, execute func()) {
 	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-
-		for range ticker.C {
+		for {
 			if !checkAPI || x.apiCache.IsQuotaAvailable() {
 				execute()
 			}
+
+			time.Sleep(interval)
 		}
 	}()
 }

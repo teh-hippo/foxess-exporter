@@ -20,22 +20,19 @@ type ServeCommand struct {
 	RealTimeInterval time.Duration   `short:"R" long:"realtime-interval" description:"Update frequency of real-time data" env:"REAL_TIME_INTERVAL" required:"true" default:"3m"`
 	StatusInterval   time.Duration   `short:"S" long:"status-interval"   description:"Update frequency of devices status" env:"STATUS_INTERVAL"    required:"true" default:"15m"`
 	Verbose          bool            `short:"v" long:"verbose"           description:"Enable verbose logging"             env:"VERBOSE"`
+	deviceCache      *serve.DeviceCache
+	apiCache         *serve.APIQuota
+	metrics          *serve.Metrics
 }
-
-var (
-	deviceCache serve.DeviceCache
-	apiCache    serve.APIQuota
-	metrics     serve.Metrics
-)
 
 func (x *ServeCommand) Register(parser *flags.Parser) {
 	if _, err := parser.AddCommand("serve", "Serve FoxESS metrics", "Creates a Prometheus endpoint where metrics can be provided.", x); err != nil {
 		panic(err)
 	}
 
-	deviceCache = *serve.NewDeviceCache()
-	apiCache = *serve.NewAPIQuota()
-	metrics = *serve.NewMetrics()
+	x.deviceCache = serve.NewDeviceCache()
+	x.apiCache = serve.NewAPIQuota()
+	x.metrics = serve.NewMetrics()
 }
 
 func (x *ServeCommand) validateIntervals() error {
@@ -63,19 +60,24 @@ func (x *ServeCommand) Execute(_ []string) error {
 			ids = append(ids, deviceID)
 		}
 
-		deviceCache.Set(ids)
+		x.deviceCache.Set(ids)
 	}
 
-	run(10*time.Minute, false, x.updateAPIQuota)
-	run(x.StatusInterval, true, x.updateDeviceStatus)
-	run(x.RealTimeInterval, true, x.updateRealTimeMetrics)
+	x.run(10*time.Minute, false, x.updateAPIQuota)
+	x.run(x.StatusInterval, true, x.updateDeviceStatus)
+	x.run(x.RealTimeInterval, true, x.updateRealTimeMetrics)
 
-	http.Handle("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
+	http.Handle("/metrics", promhttp.HandlerFor(x.metrics.Registry, promhttp.HandlerOpts{}))
 	http.Handle("/favicon.ico", http.RedirectHandler("https://www.foxesscloud.com/favicon.ico", http.StatusMovedPermanently))
 
 	server := &http.Server{Addr: ":" + fmt.Sprint(x.Port), ReadHeaderTimeout: 3 * time.Second}
 
-	return server.ListenAndServe()
+	err := server.ListenAndServe()
+	if err != nil {
+		return fmt.Errorf("failed to start server: %w", err)
+	}
+
+	return nil
 }
 
 func (x *ServeCommand) updateAPIQuota() {
@@ -84,7 +86,7 @@ func (x *ServeCommand) updateAPIQuota() {
 		fmt.Printf("failed to update API usage: %v", err)
 	} else {
 		x.verbose("Updating API usage")
-		apiCache.Set(apiUsage)
+		x.apiCache.Set(apiUsage)
 		log.Printf("Usage: %.0f/%.0f (%.2f%%)\n", apiUsage.Total-apiUsage.Remaining, apiUsage.Total, apiUsage.PercentageUsed)
 	}
 }
@@ -97,7 +99,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 	if err != nil {
 		fmt.Printf("Unable to update device list: %v", err)
 	} else {
-		metrics.UpdateStatus(devices, x.Include)
+		x.metrics.UpdateStatus(devices, x.Include)
 		hasFilter := len(x.Inverters) > 0
 
 		if !hasFilter {
@@ -106,7 +108,7 @@ func (x *ServeCommand) updateDeviceStatus() {
 				ids[i] = device.DeviceSerialNumber
 			}
 
-			deviceCache.Set(ids)
+			x.deviceCache.Set(ids)
 		}
 	}
 }
@@ -114,21 +116,21 @@ func (x *ServeCommand) updateDeviceStatus() {
 func (x *ServeCommand) updateRealTimeMetrics() {
 	x.verbose("Retrieving latest real-time data")
 
-	data, err := foxessAPI.GetRealTimeData(deviceCache.Get(), x.Variables)
+	data, err := foxessAPI.GetRealTimeData(x.deviceCache.Get(), x.Variables)
 	if err != nil {
 		fmt.Printf("Unable to retrieve latest real-time data: %v", err)
 	}
 
-	metrics.UpdateRealTime(data)
+	x.metrics.UpdateRealTime(data)
 }
 
-func run(interval time.Duration, checkAPI bool, execute func()) {
+func (x *ServeCommand) run(interval time.Duration, checkAPI bool, execute func()) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			if !checkAPI || apiCache.IsQuotaAvailable() {
+			if !checkAPI || x.apiCache.IsQuotaAvailable() {
 				execute()
 			}
 		}

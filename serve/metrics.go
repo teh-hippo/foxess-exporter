@@ -23,7 +23,7 @@ func NewMetrics() *Metrics {
 			Subsystem:   "",
 			Name:        "foxess_device_status",
 			Help:        "Status of the inverter.",
-			ConstLabels: prometheus.Labels{},
+			ConstLabels: nil,
 		}, []string{"inverter"}),
 		realtime: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace:   "",

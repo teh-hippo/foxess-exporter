@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	FormatTable = "table"
-	FormatJSON  = "json"
+	FormatTable       = "table"
+	FormatJSON        = "json"
+	FormatRemoteWrite = "remote-write"
 )
 
 var (

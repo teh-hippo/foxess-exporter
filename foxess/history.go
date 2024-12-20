@@ -1,5 +1,10 @@
 package foxess
 
+import (
+	"sort"
+	"time"
+)
+
 type HistoryRequest struct {
 	SerialNumber string   `json:"sn"`
 	Begin        int64    `json:"begin"`
@@ -7,13 +12,15 @@ type HistoryRequest struct {
 	Variables    []string `json:"variables"`
 }
 
+type InverterHistory struct {
+	Variables []VariableHistory `json:"datas"`
+	DeviceSN  string            `json:"deviceSN"`
+}
+
 type HistoryResponse struct {
-	ErrorNumber int    `json:"errno"`
-	Message     string `json:"msg"`
-	Result      []struct {
-		Variables []VariableHistory `json:"datas"`
-		DeviceSN  string            `json:"deviceSN"`
-	} `json:"result"`
+	ErrorNumber int               `json:"errno"`
+	Message     string            `json:"msg"`
+	Result      []InverterHistory `json:"result"`
 }
 
 type DataPoint struct {
@@ -28,10 +35,10 @@ type VariableHistory struct {
 	Variable   string      `json:"variable"`
 }
 
-func (api *Config) GetVariableHistory(inverter string, begin, end int64, variables []string) ([]VariableHistory, error) {
+func (api *Config) GetVariableHistory(inverter string, begin, end time.Time, variables []string) ([]InverterHistory, error) {
 	request := &HistoryRequest{
-		Begin:        begin,
-		End:          end,
+		Begin:        begin.UnixMilli(),
+		End:          end.UnixMilli(),
 		SerialNumber: inverter,
 		Variables:    variables,
 	}
@@ -45,10 +52,13 @@ func (api *Config) GetVariableHistory(inverter string, begin, end int64, variabl
 		return nil, err
 	}
 
-	result := make([]VariableHistory, len(response.Result))
-	for i, r := range response.Result {
-		result[i] = r.Variables[i]
+	for i := range response.Result {
+		for _, r := range response.Result[i].Variables {
+			sort.Slice(r.DataPoints, func(i, j int) bool {
+				return r.DataPoints[i].Time.UnixMilli() < r.DataPoints[j].Time.UnixMilli()
+			})
+		}
 	}
 
-	return result, nil
+	return response.Result, nil
 }

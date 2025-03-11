@@ -1,5 +1,5 @@
 # Build
-FROM golang:1.23-alpine AS builder
+FROM docker.io/golang:1.23-alpine AS builder
 WORKDIR /app
 RUN apk --no-cache add ca-certificates tzdata
 COPY go.mod go.sum ./

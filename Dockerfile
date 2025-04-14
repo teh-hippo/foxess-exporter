@@ -5,7 +5,7 @@ RUN apk --no-cache add ca-certificates tzdata
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o foxess-exporter -ldflags="-s -w" -trimpath
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o foxess-exporter -trimpath -ldflags="-s -w"
 
 # Tiny Container
 FROM scratch

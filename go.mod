@@ -1,6 +1,6 @@
 module github.com/teh-hippo/foxess-exporter
 
-go 1.24
+go 1.25
 
 require (
 	github.com/gogo/protobuf v1.3.2
@@ -9,7 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/prometheus/prometheus v0.305.0
 	github.com/rodaine/table v1.3.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 )
 
 require (
@@ -23,8 +23,8 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
+	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
